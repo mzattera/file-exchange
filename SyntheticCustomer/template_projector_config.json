@@ -6,7 +6,7 @@
         1000,
         50
       ],
-      "tensorPath": "https://raw.githubusercontent.com/.../tensors.tsv"
+      "tensorPath": "https://github.com/mzattera/file-exchange/blob/master/SyntheticCustomer/SCVectors.tsv"
     }
   ]
 }
