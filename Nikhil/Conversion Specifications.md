@@ -1,7 +1,7 @@
 You are an agent assisting a developer in translating some Java code into Python.
 The Java code is provided below, in <java> tag.
 
-Your task is to produce a single Python file with the translation of these classes: ChatCompletion, ChatMessage, FinishReason, MessagePart, TextPart, ToolCall, ToolCallResult by **STRICTLY** following the instructions below.
+Your task is to translate these classes in Python: PersonLocatorAgent, ReactAgentTest, WeatherAgent; while you do it, you **MUST** **STRICTLY** follow the instructions below.
 
 ## Instructions
 
@@ -13,7 +13,8 @@ Always use type annotations (Python 3.6+).
 When @NonNull is used in a method parameter, add code in the Python function that checks provided parameter value is not null.
 Ignore the "final" attribute when converting from Java.
 Translate RuntimeException as RuntimeError and IllegalArgumentException as ValueError.
-Strictly always create comments in English; **NEVER** use Italian in your output.
+**STRICTLY** always create comments in English; **NEVER** use Italian in your output.
+**STRICTLY** ignore @JsonView annotation when translating into Python; behave like it is not there
 
 ### Logging
 
@@ -478,7 +479,7 @@ public abstract class AbstractTool implements Tool {
 	}
 }
 
-### Agent.java
+## Agent.java
 
 package core;
 
@@ -1346,114 +1347,6 @@ public class ChatMessage {
 	}
 }
 
-## FuntionCallsExample.java
-
-package core;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.Scanner;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyDescription;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaDescription;
-
-import lombok.NonNull;
-
-public class FunctionCallExample {
-
-	static Random RND = new Random();
-
-	// This is a tool that will be accessible to the agent
-	// Notice it must be public.
-	public static class GetCurrentWeatherTool extends AbstractTool {
-
-		@JsonSchemaDescription("This is a class describing parameters for GetCurrentWeatherTool")
-		public static class Parameters {
-
-			private enum TemperatureUnits {
-				CELSIUS, FARENHEIT
-			};
-
-			@JsonProperty(required = true)
-			@JsonPropertyDescription("The city and state, e.g. San Francisco, CA.")
-			public String location;
-
-			@JsonPropertyDescription("Temperature unit (CELSIUS or FARENHEIT), defaults to CELSIUS")
-			public TemperatureUnits unit;
-		}
-
-		public GetCurrentWeatherTool() throws JsonProcessingException {
-			super("getCurrentWeather", // Function name
-					"Get the current weather in a given city.", // Function description
-					Parameters.class); // Function parameters
-		}
-
-		@Override
-		public ToolCallResult invoke(@NonNull ToolCall call) throws Exception {
-
-			// Tool implementation goes here.
-			// In this example we simply return a random temperature.
-
-			if (!isInitialized())
-				throw new IllegalStateException("Tool must be initialized.");
-
-			String location = getString("location", call.getArguments());
-			return new ToolCallResult(call, "Temperature in " + location + " is " + (RND.nextInt(10) + 20) + "°C");
-		}
-	} // GetCurrentWeatherTool class
-
-	public static void main(String[] args) throws Exception {
-
-		Agent agent = new Agent("MyId", "No Description", List.of(new GetCurrentWeatherTool()));
-		agent.setPersonality("You are an helpful assistant.");
-
-		// Conversation loop
-		try (Scanner console = new Scanner(System.in)) {
-			while (true) {
-				System.out.print("User     > ");
-				String s = console.nextLine();
-
-				ChatCompletion reply = agent.chat(s);
-
-				// Check if agent generated a function call
-				while (reply.getMessage().hasToolCalls()) {
-
-					List<ToolCallResult> results = new ArrayList<>();
-
-					// TODO Urgent: display any content that is not a tool call.
-					// Add a method to get all and only concatenated text?
-
-					for (ToolCall call : reply.getMessage().getToolCalls()) {
-
-						// Print call for illustrative purposes
-						System.out.println("CALL " + " > " + call);
-
-						// Execute call, handling errors nicely
-						ToolCallResult result;
-						try {
-							result = call.execute();
-						} catch (Exception e) {
-							result = new ToolCallResult(call, e);
-						}
-						results.add(result);
-					}
-
-					// Pass results back to the agent
-					// Notice this might in principle generate
-					// other tool calls, hence the loop
-					reply = agent.chat(new ChatMessage(results));
-
-				} // while we serviced all calls
-
-				System.out.println("Assistant> " + reply.getText());
-			}
-		}
-	}
-}
-
 ## JsonSchema.java
 
 package core;
@@ -1881,11 +1774,1056 @@ public class ToolCallResult implements MessagePart {
 
 }
 
+## CriticModule.java
+
+package com.infosys.small.react;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.infosys.small.core.Agent;
+import com.infosys.small.core.JsonSchema;
+import com.infosys.small.core.Tool;
+import com.infosys.small.react.ReactAgent.Step;
+import com.infosys.small.react.ReactAgent.ToolCallStep;
+
+import lombok.Getter;
+import lombok.NonNull;
+
+/**
+ * This agent is a critic component, part of a {@link ReactAgent}; its task is
+ * to review the performances of the executor component and provide suggestions
+ * for it to correct its behavior.
+ */
+class CriticModule extends Agent {
+
+	private final static Logger LOG = LoggerFactory.getLogger(CriticModule.class);
+
+	@Getter
+	private final @NonNull ReactAgent agent;
+
+	// We keep them here because we do not want the reviewer to actually call any
+	// tool.
+	private final @NonNull List<Tool> tools;
+
+	public static final String PROMPT_TEMPLATE = "# Identity\n\n" //
+			+ "You are a reviewer agent; your task is to monitor how an executor agent tries to execute user's commands and provide suggestion to improve execution.\n" //
+			+ "The specific user's command the executor is trying to execute is provided in the below <user_command> tag.\n" //
+			+ "\n<user_command>\n{{command}}\n</user_command>\n\n" //
+			+ "You will be provided by the user with a potentially empty list of execution steps, in <steps> tag, that have been already performed by the executor in its attempt to execute the user's command. The format of these steps is provided as a JSON schema in <step_format> tag below. In these steps, the executor agent is identified with actor==\"{{executor_id}}\".\n"
+			+ "\n<step_format>\n" + JsonSchema.getJsonSchema(ToolCallStep.class) + "\n</step_format>\n\n" //
+			+ "\n# Additional Context and Information\n\n" //
+			+ "  * In order to execute the command, the executor agent has the tools described in the below <tools> tag at its disposal:\n\n"
+			+ "<tools>\n{{tools}}\n</tools>\n\n" //
+			+ "{{context}}\n";
+
+	public static final String REVIEW_TOOL_CALL_TEMPLATE = PROMPT_TEMPLATE //
+			+ "\n# Instructions\n\n" //
+			+ "  * If the steps contain evidence that the executor entered a loop calling same tool repeatedly with same parameters, provide a suggestion to strictly call another tool to execute next step.\n"
+			+ "  * If and only if last execution step contains a tool call resulting in an error, inspect the tool definition and check for any missing or unsupported parameter in last call; try to understand if missing parameters values are already present in some execution step \"observation\" field. Suggest to the executor to repeat the call, listing the values you find for missed parameters and flagging the unsupported parameters.\n"
+			+ "  * **IMPORTANTLY**, in all other case, or if you do not have any relevant suggestion about how to change the executor behavior, just output \"CONTINUE\"."
+			+ "  * **IMPORTANTLY** your output is either a suggestion or \"CONTINUE\", do not add any comment if you emit \"CONTINUE\" and do not use \"CONTINUE\" if you have a suggestion.";
+
+	public static final String REVIEW_CONCLUSIONS_TEMPLATE = PROMPT_TEMPLATE //
+			+ "\n# Instructions\n\n" //
+			+ "  * If and only if last execution step has status=\"ERROR\", it means the executor is aborting execution because it encountered an error it cannot resolve. In this case, examine carefully the execution steps, try to determine what went wrong; if you are able to identify a possible error source and a remediation approach, output a suggestion detailing how the error can be avoided. For example, if the executor is trying to use the wrong tool to perform a task, suggest the proper tool to use.\n"
+			+ "  * If and only if last execution step has status=\"COMPLETED\", check it carefully for indication in \"observation\" or \"thought\" fields that the executor has some more steps to perform to complete the user's command. "
+			+ "For example, executor might mention it needs to proceed with next steps, or list tasks it still needs to perform. If this is the case, output a suggestion to proceed with execution of these steps.\n"
+			+ "  * **IMPORTANTLY**, in all other cases, or if you do not have any relevant suggestion about how to change the executor behavior, just output \"CONTINUE\"."
+			+ "  * The only evidence that the executor called a tool or performed a specific task is in the \"action\" field of any step; " //
+			+ "do not trust the executor when it says in \"though\" or \"observation\" that an action has been performed, unless that step also contains an \"action\" field mentioning a relevant tool."
+			+ "  * **IMPORTANTLY** your output is either a suggestion or \"CONTINUE\", do not add any comment if you emit \"CONTINUE\".\n"
+			+ "\n# Examples\n\n" //
+			+ "Input:\n\n" //
+			+ "<steps>[...<several steps before last one>\n" //
+			+ "{\n" //
+			+ "  \"status\" : \"COMPLETED\",\n" //
+			+ "  \"actor\" : <Executor ID here>,\n" //
+			+ "  \"thought\" : \"The next required step is to send an email to the requester with required details. All other process steps have been completed, so I will now send the email and complete execution.\",\n" //
+			+ "  \"observation\" : \"Email sent to requester with required details. All required steps in the process have been performed.\"\n" //
+			+ "}]\n" //
+			+ "</steps>\n" //
+			+ "\nCorrect Output:\n\n" //
+			+ "There is no evidence you sent the email as needed, no action was performed; call the proper tool to send the email.\n" //
+			+ "\nIncorrect Output:\n\n" //
+			+ "CONTINUE\n" //
+			+ "\n---\n\n" //
+			+ "Input:\n\n" //
+			+ "<steps>[...<several steps before last one>\n" //
+			+ "{\n" //
+			+ "  \"status\" : \"COMPLETED\",\n" //
+			+ "  \"actor\" : <Executor ID here>,\n" //
+			+ "  \"thought\" : \"The only remaining step is to close the task. I will now call the tool to close the task.\",\n" //
+			+ "  \"observation\" : \"Task with ID 123 has been successfully closed. All required steps in the process have been performed and the user's command is fully executed.\"\n" //
+			+ "}\n" //
+			+ "}]\n" //
+			+ "</steps>\n" //
+			+ "\nCorrect Output:\n\n" //
+			+ "There is no evidence you closed the task as needed, no action was performed; call the proper tool to close the task.\n" //
+			+ "\nIncorrect Output:\n\n" //
+			+ "CONTINUE\n" //
+			+ "\n---\n\n" //
+			+ "Input:\n\n" //
+			+ "<steps>[...<several steps before...>\n" //
+			+ "{\n" //
+			+ "  \"actor\" : <Executor ID here>,\n" //
+			+ "  \"thought\" : \"I need to retrieve J. Doe email address and other data.\",\n" //
+			+ "  \"observation\" : \"Data about client J. Doe:\\n email:joe@doe.com\\n customer number: 4567\\n\",\n" //
+			+ "  \"action\" : \"The tool \\\"getCustomerData\\\" has been called\",\n" //
+			+ "  \"actionInput\" : \"{\\\"question\\\":\\\"Retrieve data for customer J. Doe.\\\"}\",\n" //
+			+ "},\n" //
+			+ "{\n" //
+			+ "  \"actor\" : <Executor ID here>,\n" //
+			+ "  \"thought\" : \"The next step is to send an email to J. Doe.\",\n" //
+			+ "  \"observation\" : \"ERROR: Missing required information: J. Doe's unique customer number.\",\n" //
+			+ "  \"action\" : \"The tool \\\"sendEmail\\\" has been called\",\n" //
+			+ "  \"actionInput\" : \"{\\\"question\\\":\\\"Send an email to J. Doe (joe@doe.com) with the following content: \\\"Order received.\\\"\\\"}\",\n" //
+			+ "}]\n" //
+			+ "</steps>\n" //
+			+ "\nCorrect Output:\n\n" //
+			+ "The sendEmail tool requires a customer number; use the customer number 4567 as indicted in previous steps.\n" //
+			+ "\nIncorrect Output:\n\n" //
+			+ "The sendEmail tool requires a customer number. If you have J. Doe's customer number from previous steps, use that value.\n" //
+			+ "\n---\n\n" //
+			+ "Given the above examples, provide only the Correct Output for future inputs.\n"; //
+
+	CriticModule(@NonNull ReactAgent agent, @NonNull List<? extends Tool> tools, @NonNull String model) {
+		super(agent.getId() + "-critic", "Critic module for " + agent.getId() + " agent", new ArrayList<>());
+		this.agent = agent;
+		this.tools = new ArrayList<>(tools);
+		setTemperature(0d);
+		setModel(model);
+	}
+
+	/**
+	 * Instructs the critic to review last tool call.
+	 */
+	public String reviewToolCall(@NonNull List<? extends Step> steps) throws JsonProcessingException {
+		return review(REVIEW_TOOL_CALL_TEMPLATE, steps);
+	}
+
+	/**
+	 * Instructs the critic to review last tool call.
+	 */
+	public String reviewConclusions(@NonNull List<? extends Step> steps) throws JsonProcessingException {
+		return review(REVIEW_CONCLUSIONS_TEMPLATE, steps);
+	}
+
+	/**
+	 * Instructs the critic to review last tool call.
+	 */
+	public String review(String template, @NonNull List<? extends Step> steps) throws JsonProcessingException {
+
+		Map<String, String> map = new HashMap<>();
+		map.put("command", agent.getExecutor().getCommand());
+		map.put("executor_id", agent.getExecutor().getId());
+		map.put("context", agent.getContext());
+		map.put("tools", buildToolDescription(tools));
+		map.put("steps", JsonSchema.serialize(steps));
+		setPersonality(Agent.fillSlots(template, map));
+
+		clearConversation();
+		String suggestion = chat(Agent.fillSlots("<steps>\\n{{steps}}\\n</steps>", map)).getText();
+		LOG.debug("    **** Suggestion: " + suggestion);
+		return chat(Agent.fillSlots("<steps>\\n{{steps}}\\n</steps>", map)).getText();
+	}
+
+	private static String buildToolDescription(@NonNull List<Tool> tools) {
+		StringBuilder sb = new StringBuilder();
+		for (Tool t : tools) {
+			sb.append("## Tool\n\n");
+			sb.append("### Tool ID: ").append(t.getId()).append("\n");
+			sb.append("### Tool Description\n").append(t.getDescription()).append("\n");
+			sb.append("### Tool Paramters (as JSON schema\n").append(t.getJsonParameters()).append("\n\n");
+		}
+		return sb.toString();
+	}
+
+}
+
+## ExecutorModule.java
+
+/*
+ * Copyright 2023 Massimiliano "Maxi" Zattera
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * 
+ */
+package com.infosys.small.react;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.infosys.small.core.Agent;
+import com.infosys.small.core.ChatCompletion;
+import com.infosys.small.core.JsonSchema;
+import com.infosys.small.core.Tool;
+import com.infosys.small.core.ToolCall;
+import com.infosys.small.core.ToolCallResult;
+import com.infosys.small.core.ChatCompletion.FinishReason;
+import com.infosys.small.react.ReactAgent.Step;
+import com.infosys.small.react.ReactAgent.ToolCallStep;
+import com.infosys.small.react.ReactAgent.Step.Status;
+
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.Setter;
+
+/**
+ * This agent is an executor component, part of a {@link ReactAgent}; its task
+ * is to execute user's commands using the tools at its disposal.
+ */
+class ExecutorModule extends Agent {
+
+	private final static Logger LOG = LoggerFactory.getLogger(ExecutorModule.class);
+
+	/**
+	 * After this number of steps, we stop execution (to avoid loops).
+	 */
+	// TODO Urgent: make this configurable
+	public final static int MAX_STEPS = 40;
+
+	private static final String PROMPT_TEMPLATE = "# Identity\n\n" //
+			+ "You are a ReAct (Reasoning and Acting) agent; your task is to execute the below user command in <user_command> tag.\n"
+			+ "\n<user_command>\n{{command}}\n</user_command>\n\n" //
+			+ "You will be provided by the user with a potentially empty list of execution steps, in <steps> tag, that you have already performed in an attempt to execute the user's command. The format of these steps is provided as a JSON schema in <step_format> tag below.\n"
+			+ "\n<step_format>\n" + JsonSchema.getJsonSchema(ToolCallStep.class) + "\n</step_format>\n\n" //
+			+ "Together with the list of steps, the user might provide a suggestion about how to execute next step.\n"
+			+ "\n# Additional Context and Information\n\n" //
+			+ " * You are identified with actor=={{id}} in execution steps." //
+			+ "{{context}}\n\n" //
+			+ "\n# Instructions\n\n" //
+			+ "  * Carefully plan the steps required to execute the user's command, think it step by step.\n"
+			+ "  * If the user provided a suggestion about how to progress execution, then **STRICTLY** and **IMPORTANTLY** follow that suggestion when planning next step. "
+			+ "Notice that the suggestion can ask you to proceed even if last step has status==\"COMPLETED\" or status==\"ERROR\"; if this is the case, you **MUST** **STRICTLY** follow the suggestion."
+			+ " **IMPORTANTLY** notice the suggestion refers only to next execution step; you still need to continue execution after that, to fully execute user's command eventually.\n"
+			+ "  * At each new step, use the most suitable tool at your disposal to progress towards executing the user's command. **STRICTLY** and **IMPORTANTLY** **NEVER** output a step to indicate a tool call, but call the tool directly.\n"
+			+ "  * Your tools do not have access to steps in <steps>, therefore you must pass them all the parameters they require with their corresponding values. Be very detailed and specific each time you issue a tool call.\n"
+			+ "  * When calling a tool, be specific on the task you want the tool to accomplish, do not mention why you are calling the tool and what your next steps will be.\n"
+			+ "  * When planning the next step, carefully consider all of the steps already executed that are contained in <steps> tag. Carefully consider the thought that caused you to call each tool, usually provided as \"thought\" field in \"actionInput\" field, and observe the result of the call in \"observation\" field, before planning next step.\n"
+			+ "  * **IMPORTANTLY** Never state in \"observation\" field that an action was performed, unless you called the proper tool to perform it, and it returned no errors."
+			+ "  * When you are completely done done with executing the user's command and no further steps are needed, and only in that case, output one final step with status=\"COMPLETED\".\n"
+			+ "  * **STRICTLY** and **IMPORTANTLY** **NEVER** output a step with status=\"COMPLETED\" if you think there are still actions to be performed; call the proper tool instead."
+			+ "  * If you are experiencing an error, try to act differently and recover from it; if you are unable to recover, output one final step with status=\"ERROR\".\n"
+			+ "  * **IMPORTANTLY**, when you output a final step with status=\"ERROR\", clearly and in detail describe in the \"observation\" field the reason of your failure. If the command lacked any necessary information, list missing information clearly and in detail. Suggest to the user any change or additions they could do to the command to help you to execute it.\n"
+			+ "  * **IMPORTANTLY**, in all other cases, use status=\"IN_PROGRESS\", **STRICTLY** try to avoid this, rather use tool calls if you still have steps left to execute."
+			+ "  * The format of the last step to output is described by the below JSON schema in <output_schema> tag; use this very format when outputting the final step.\n" //
+			+ "\n<output_schema>\n" + JsonSchema.getJsonSchema(Step.class) + "\n</output_schema>\n" + "\n# Examples\n\n" //
+			+ "Input & Context:\n\n" //
+			+ "<user_command>Update J. Doe data with newest information.</user_command> and you realize data for J. Doe is already up-to-date.\n" //
+			+ "\nCorrect Output:\n\n" //
+			+ "		{\n" //
+			+ "		  \"status\" : \"COMPLETED\",\n" //
+			+ "		  \"actor\" : <your ID here>,\n" //
+			+ "		  \"thought\" : \"The system record for J. Doe matches the provided data, no update is needed.\",\n" //
+			+ "		  \"observation\" : \"No action needed, I have completed execution of the command.\",\n" //
+			+ "		}\n" //
+			+ "\nIncorrect Output:\n\n" //
+			+ "<Issuing a tool call>\n" //
+			+ "\n---\n\n" //
+			+ "Input & Context:\n\n" //
+			+ "You think the only remaining step in the process is to send an email to the customer.\n" //
+			+ "\nCorrect Output:\n\n" //
+			+ "<Issuing a tool call to send the email>\n" //
+			+ "\nIncorrect Output:\n\n" //
+			+ "		{\n" //
+			+ "		  \"status\" : \"COMPLETED\",\n" //
+			+ "		  \"actor\" : <your ID here>,\n" //
+			+ "		  \"thought\" : \"All required steps in the process have been performed; The only remaining step is to send email to customer.\",\n" //
+			+ "		  \"observation\" : \"All process steps completed. The only remaining action is to send an email.\"\n" //
+			+ "		}\n" //
+			+ "\n---\n\n" //
+			+ "Input & Context:\n\n" //
+			+ "<steps>[...<several steps before last one>\n" //
+			+ "		{\n" //
+			+ "		  \"status\" : \"COMPLETED\",\n" //
+			+ "		  \"actor\" : <your ID here>,\n" //
+			+ "		  \"thought\" : \"All steps up to this point have been completed as per the process. I only need to create the corresponding log entry.\",\n" //
+			+ "		  \"observation\" : The process is complete up to the current stage.\"\n" //
+			+ "		}]\n" //
+			+ "</steps>\n" //
+			+ "Suggestion: \"You must proceed with the next required steps: create corresponding log entry\","
+			+ "\nCorrect Output:\n\n" //
+			+ "<Issuing a tool call to create the log entry>\n" //
+			+ "\nIncorrect Output:\n\n" //
+			+ "		{\n" //
+			+ "		  \"status\" : \"COMPLETED\",\n" //
+			+ "		  \"actor\" : <your ID here>,\n" //
+			+ "		  \"thought\" : \"I only need to create the corresponding log entry.\",\n" //
+			+ "		  \"observation\" : The process is complete up to the current stage.\"\n" //
+			+ "		}\n" //
+			+ "\n---\n\n" //
+			+ "Input & Context:\n\n" //
+			+ "You think the process requires that you send an email to the user." //
+			+ "\nCorrect Output:\n\n" //
+			+ "<Issuing a tool call to send the email>\n" //
+			+ "\nIncorrect Output:\n\n" //
+			+ "{\n" //
+			+ "  \"actor\" : <your ID here>,\n" //
+			+ "  \"thought\" : \"The process requires that I must send an email to the user.\",\n" //
+			+ "  \"observation\" : \"Proceeding to send an email to user.\"\n" //
+			+ "}\n" //
+			+ "\n---\n\n" //
+			+ "Input & Context:\n\n" //
+			+ "<steps>[{\n" //
+			+ "  \"actor\" : <your ID here>,\n" //
+			+ "  \"thought\" : \"I am starting execution of the below user's command in <user_command> tag.\\n\\n<user_command>\\nSend an email to J. Doe\\n</user_command>\",\n" //
+			+ "  \"observation\" : \"Execution just started.\"\n" //
+			+ "}]</steps>\n" //
+			+ "\nCorrect Output:\n\n" //
+			+ "<Issuing a tool call to send the email>\n" //
+			+ "\nIncorrect Output:\n\n" + "{\n" //
+			+ "  \"status\" : \"COMPLETED\",\n" //
+			+ "  \"actor\" : <your ID here>,\n" //
+			+ "  \"thought\" : \"The user's command is to send an email to J. Doe. The only required action is to send the email as instructed.\",\n" //
+			+ "  \"observation\" : \"The email to J. Doe has been sent as requested.\"\n" //
+			+ "}\n" //
+			+ "\n---\n\n" //
+			+ "Input & Context:\n\n" //
+			+ "<user_command>Assign oldest task to operator 42.</user_command>\n" //
+			+ "<steps>[...<several steps before last one>\n" //
+			+ "		{\n" //
+			+ "		  \"actor\" : <your ID here>,\n" //
+			+ "  \"observation\" : \"OK, task assigned\",\n" //
+			+ "  \"thought\" : \"I will assign task with ID 5656 (oldest task) to Operator ID 42 as requested.\",\n" //
+			+ "  \"action\" : \"The tool \\\"assignTask\\\" has been called\",\n" //
+			+ "  \"actionInput\" : \"{\\\"taskID\\\":\\\"5656\",\\\"operatorId\\\":\\\"42\\\"}\",\n" //
+			+ "}]</steps>\n" //
+			+ "\nCorrect Output:\n\n" //
+			+ "{" //
+			+ "  \"status\" : \"COMPLETED\",\n" //
+			+ "  \"actor\" : <your ID here>,\n" //
+			+ "  \"thought\" : \"The oldest task (ID=5656) has been assigned to Operator ID 42.\"\n" //
+			+ "  \"outcome\" : \"The task with ID 5656 has been successfully assigned to Operator ID 42.\"\n" //
+			+ "}" //
+			+ "\nIncorrect Output:\n\n" //
+			+ "{\n" //
+			+ "  \"actor\" : <your ID here>,\n" //
+			+ "  \"thought\" : \"I want to double-check that the task assignment is reflected in the current list of tasks for Operator ID 42, ensuring the process is complete and the correct task is now assigned.\",\n" //
+			+ "  \"observation\" : \"List of tasks assigned to operator 42 = [5656]\",\n" //
+			+ "  \"action\" : \"The tool \\\"getTasksForOperatot\\\" has been called\",\n" //
+			+ "  \"actionInput\" : \"{\\\"operatorId\\\":\\\"42\\\"}\",\n" //
+			+ "}\n" //
+			+ "\n---\n\n" //
+			+ "Input & Context:\n\n" //
+			+ "You want to call \"getTasks\" tool.\n" //
+			+ "\nCorrect Output:\n\n" //
+			+ "{\n" //
+			+ "  \"actor\" : <your ID here>,\n" //
+			+ "  \"thought\" : \"I need to check if all tasks assigned to Operator with ID 90 are already closed. If not, I will write a reminder for the operator.\",\n" //
+			+ "  \"observation\" : \"No open tasks are assigned to Operator ID 90 have been closed.\",\n" //
+			+ "  \"action\" : \"The tool \\\"getTasks\\\" has been called\",\n" //
+			+ "  \"actionInput\" : \"{\\\"question\\\":\\\"For all tasks assigned to Operator ID 90, list all that are still open.\\\"}\",\n" //
+			+ "} \n" //
+			+ "\nIncorrect Output:\n\n" //
+			+ "{\n" //
+			+ "  \"actor\" : <your ID here>,\n" //
+			+ "  \"thought\" : \"I need to check if all tasks assigned to Operator with ID 90 are already closed. If not, I will write a reminder for the operator.\",\n" //
+			+ "  \"observation\" : \"No open tasks are assigned to Operator ID 90 have been closed.\",\n" //
+			+ "  \"action\" : \"The tool \\\"getTasks\\\" has been called\",\n" //
+			+ "  \"actionInput\" : \"{\\\"question\\\":\\\"For all tasks assigned to Operator ID 90, list all that are still open. If any, I will send a reminder to the operator.\\\"}\",\n" //
+			+ "} \n" //
+			+ "\n---\n\n" //
+			+ "Given the above examples, provide only the Correct Output for future inputs and context.\n" //
+			+ "\n## Other Examples\n\n" //
+			+ "{{examples}}\n";
+
+	/**
+	 * This is the ReAct agent containing this executor component.
+	 */
+	@Getter
+	private final @NonNull ReactAgent agent;
+
+	/**
+	 * If true, it will call the reviewer on last step before exiting. We do this to
+	 * save tokens.
+	 */
+	@Getter
+	@Setter
+	private boolean checkLastStep;
+
+	/**
+	 * Current command being executed.
+	 */
+	@Getter
+	private String command;
+
+	/**
+	 * The list of steps executed so far while executing current command.
+	 */
+	@Getter
+	private final @NonNull List<Step> steps = new ArrayList<>();
+
+	/**
+	 * @return Last step so far (or null).
+	 */
+	public Step getLastStep() {
+		return (steps.size() == 0) ? null : steps.get(steps.size() - 1);
+	}
+
+	/**
+	 * Adds one step to the list of execution steps.
+	 */
+	public void addStep(Step step) {
+		steps.add(step);
+
+		// TODO Write step into the database, if a link to the database is provided
+	}
+
+	ExecutorModule(@NonNull ReactAgent agent, @NonNull List<? extends Tool> tools, boolean checkLastStep,
+			@NonNull String model) {
+
+		super(agent.getId() + "-executor", "Executor module for " + agent.getId() + " agent", tools);
+		this.agent = agent;
+		this.checkLastStep = checkLastStep;
+
+		setTemperature(0d);
+		setModel(model);
+		setResponseFormat(Step.class);
+	}
+
+	public Step execute(@NonNull String command) throws JsonProcessingException {
+
+		this.command = command;
+		steps.clear();
+
+		Map<String, String> map = new HashMap<>();
+		map.put("command", command);
+		map.put("id", getId());
+		map.put("context", agent.getContext());
+		map.put("examples", agent.getExamples());
+
+		setPersonality(Agent.fillSlots(PROMPT_TEMPLATE, map));
+
+		Step step = new Step.Builder() //
+				.actor(getId()) //
+				.status(Status.IN_PROGRESS) //
+				.thought(Agent.fillSlots(
+						"I am starting execution of the below user's command in <user_command> tag.\n\n<user_command>\n{{command}}\n</user_command>",
+						map)) //
+				.observation("Execution just started.") //
+				.build();
+		addStep(step);
+		LOG.info(JsonSchema.prettyPrint(step));
+
+		// execution loop
+		String instructions = "<steps>\n{{steps}}\n</steps>\n\nSuggestion: {{suggestion}}";
+		String suggestion = "No suggestions. Proceed as you see best, using the tools at your disposal.";
+		while ((steps.size() < MAX_STEPS) && ((getLastStep() == null) || (getLastStep().status == null)
+				|| (getLastStep().status == Status.IN_PROGRESS))) {
+
+			clearConversation();
+			
+			// Strictly and importantly; when translating the below line of code into Python
+			// you must serialize steps into a JSON array of Step but importantly excluding 
+			// the actionStep field then serializing each step
+			map.put("steps", JsonSchema.JSON_MAPPER.writerWithView(Step.Views.Compact.class).writeValueAsString(steps));
+			
+			map.put("suggestion", suggestion);
+			String message = Agent.fillSlots(instructions, map);
+			ChatCompletion reply = null;
+			Exception ex = null;
+			try {
+				reply = chat(message);
+			} catch (Exception e) { // Exception calling the LLM
+				ex = e;
+				LOG.error(e.getMessage(), e);
+			}
+
+			if ((ex != null) || (reply.getFinishReason() != FinishReason.COMPLETED)) { // Something went wrong calling
+																						// the LLM
+				step = new ToolCallStep.Builder() //
+						.actor(getId()) //
+						.status(Status.ERROR) //
+						.thought("I had something in mind...") //
+						.action("LLM was called but this resulted in "
+								+ ((ex != null) ? "an error." : "a truncated message.")) //
+						.actionInput(message) //
+						.actionSteps(new ArrayList<>()) //
+						.observation(
+								(ex != null) ? ex.getMessage() : "Response finish reason: " + reply.getFinishReason()) //
+						.build();
+				addStep(step);
+				LOG.info(JsonSchema.prettyPrint(step));
+				break;
+			}
+
+			// Check if agent generated a function call
+			if (reply.getMessage().hasToolCalls()) { // Agent called a tool
+
+				List<ToolCallResult> results = new ArrayList<>();
+				boolean withError = false; // See below
+				for (ToolCall call : reply.getMessage().getToolCalls()) {
+
+					// Execute each call, handling errors nicely
+					ToolCallResult result;
+					try {
+						result = call.execute();
+					} catch (Exception e) {
+						result = new ToolCallResult(call, e);
+						withError = true;
+					}
+					results.add(result);
+					// TODO We should use a more generic way?
+					withError |= result.getResult().toString().toLowerCase().contains("error");
+
+					// Store the call and the results in steps
+					Map<String, Object> args = new HashMap<>(call.getArguments());
+					Object thought = args.remove("thought"); // Should always be provided
+					step = new ToolCallStep.Builder() //
+							.actor(getId()) //
+							.status(Status.IN_PROGRESS) //
+							.thought(thought == null ? "No thought passed explicitely." : thought.toString()) //
+							.action("The tool \"" + call.getTool().getId() + "\" has been called") //
+							.actionInput(JsonSchema.serialize(args)) //
+							.actionSteps( // If the tool was another agent, store its steps too
+									(call.getTool() instanceof ReactAgent) ? ((ReactAgent) call.getTool()).getSteps()
+											: new ArrayList<>()) //
+							.observation(result.getResult().toString()).build();
+
+					addStep(step);
+					LOG.info(JsonSchema.prettyPrint(step));
+
+					if (steps.size() > MAX_STEPS)
+						break;
+				} // for each tool call, in case of parallel calls
+
+				if (steps.size() <= MAX_STEPS) {
+					// Trick to save time and tokens; maybe remove :)
+					if (withError)
+						suggestion = agent.getReviewer().reviewToolCall(steps);
+					else
+						suggestion = "CONTINUE";
+				}
+			} else { // Agent output something different than a tool call
+
+				try {
+					step = reply.getObject(Step.class);
+					step.actor = getId();
+					addStep(step);
+					LOG.info(JsonSchema.prettyPrint(step));
+				} catch (JsonProcessingException e) { // Paranoid
+					step = new Step.Builder() //
+							.actor(getId()) //
+							.thought("I stopped because I encountered this error: " + e.getMessage()) //
+							.observation(reply.getText()) //
+							.status(Step.Status.ERROR).build();
+					addStep(step);
+					LOG.info(JsonSchema.prettyPrint(step));
+				}
+
+				// Check the result
+				if (getLastStep().status == Status.IN_PROGRESS) {
+					suggestion = "**STRICTLY** proceed with next steps, by calling appropriate tools.";
+				} else if (checkLastStep) { // Configurable, to decide in which component we check
+					// Try to recover errors
+					suggestion = agent.getReviewer().reviewConclusions(steps);
+					if (!suggestion.toLowerCase().contains("continue")) {
+						// forces the conversation to continue
+//						steps.remove(getLastStep());
+						getLastStep().status = Status.IN_PROGRESS;
+//						getLastStep().status = null;
+					}
+				}
+			}
+		} // loop until the command is executed
+
+		// If execution was interrupted, output a final error message
+		if (steps.size() >= MAX_STEPS) {
+			step = new Step.Builder() //
+					.actor(getId()) //
+					.thought("Execution was stopped because it exceeded maximum number of steps (" + MAX_STEPS + ").") //
+					.observation("I probably entered some kind of loop.") //
+					.status(Step.Status.ERROR).build();
+			addStep(step);
+			LOG.error(JsonSchema.prettyPrint(step));
+		}
+
+		return getLastStep();
+	}
+}
+
+## ReactAgent.java
+
+package com.infosys.small.react;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import com.fasterxml.jackson.annotation.JsonView;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.infosys.small.core.Agent;
+import com.infosys.small.core.JsonSchema;
+import com.infosys.small.core.Tool;
+import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaDescription;
+
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.NonNull;
+import lombok.Setter;
+
+/**
+ * This implements a generic ReAct agent.
+ */
+public class ReactAgent extends Agent {
+
+	public static final String DEFAULT_MODEL = "gpt-4.1";
+//	public static final String DEFAULT_MODEL = "gpt-4o";
+//	public static final String DEFAULT_MODEL = "o3";
+
+	/**
+	 * Base class for {@link Tool} parameters for those tools that are available to
+	 * a ReAct agent. They must all accept at least a thought parameter.
+	 */
+	@NoArgsConstructor
+	public static class Parameters {
+
+		@JsonProperty(required = true)
+		@JsonPropertyDescription("Your reasoning about why this tool has been called.")
+		public @NonNull String thought;
+	}
+
+	@NoArgsConstructor
+	@JsonSchemaDescription("This represent the final execution step performed by a ReAct agent.")
+	public static class Step {
+
+		public static class Views {
+			public interface Compact {
+			}
+
+			public interface Complete extends Compact {
+			}
+		}
+
+		public enum Status {
+			IN_PROGRESS, COMPLETED, ERROR
+		};
+
+		@JsonPropertyDescription("If you finish the execution or you experience an unrecoverable error, set this to either COMPLETED or ERROR respectively.")
+		@JsonView(Views.Compact.class)
+		public Status status;
+
+		// Do not remove it's OK it stays here
+		@JsonPropertyDescription("The tool or agent that executed this step. This is provided automatically, so you do not need to output it.")
+		@JsonView(Views.Compact.class)
+		public @NonNull String actor;
+
+		@JsonProperty(required = true)
+		@JsonPropertyDescription("Your reasoning about why and how accomplish this step.")
+		@JsonView(Views.Compact.class)
+		public @NonNull String thought;
+
+		@JsonProperty(required = true)
+		@JsonPropertyDescription("Any additional data, like step outcomes, error messages, etc..")
+		@JsonView(Views.Compact.class)
+		public @NonNull String observation;
+
+		// Private constructor to force use of the builder
+		private Step(Builder builder) {
+			this.status = builder.status;
+			this.actor = Objects.requireNonNull(builder.actor, "id must not be null");
+			this.thought = Objects.requireNonNull(builder.thought, "thought must not be null");
+			this.observation = Objects.requireNonNull(builder.observation, "observation must not be null");
+		}
+
+		/**
+		 * Builder for Step.
+		 */
+		public static class Builder {
+			private Status status;
+			private String actor;
+			private String thought;
+			private String observation;
+
+			public Builder status(Status status) {
+				this.status = status;
+				return this;
+			}
+
+			public Builder actor(@NonNull String actor) {
+				this.actor = actor;
+				return this;
+			}
+
+			public Builder thought(@NonNull String thought) {
+				this.thought = thought;
+				return this;
+			}
+
+			public Builder observation(@NonNull String observation) {
+				this.observation = observation;
+				return this;
+			}
+
+			public Step build() {
+				return new Step(this);
+			}
+		}
+	}
+
+	@NoArgsConstructor
+	@JsonSchemaDescription("This extends execution step to cover function calls")
+	public static class ToolCallStep extends Step {
+
+		@JsonProperty(required = true)
+		@JsonPropertyDescription("The action that was taken at this step. It is typically a tool invocation.")
+		@JsonView(Views.Compact.class)
+		public @NonNull String action;
+
+		@JsonProperty(required = true, value = "action_input")
+		@JsonPropertyDescription("Input for the action.")
+		@JsonView(Views.Compact.class)
+		public @NonNull String actionInput;
+
+		@JsonProperty(required = true, value = "action_steps")
+		@JsonPropertyDescription("In case the action for this step was delegated to another agent, this is the list of steps that agent performed to complete the action.")
+		@JsonView(Views.Complete.class)
+		public @NonNull List<Step> actionSteps;
+
+		private ToolCallStep(Builder builder) {
+			super(builder);
+			this.action = Objects.requireNonNull(builder.action, "action must not be null");
+			this.actionInput = Objects.requireNonNull(builder.actionInput, "actionInput must not be null");
+			this.actionSteps = new ArrayList<>(builder.actionSteps);
+		}
+
+		/**
+		 * Builder for ToolCallStep.
+		 */
+		public static class Builder extends Step.Builder {
+			private String action;
+			private String actionInput;
+			public List<Step> actionSteps = new ArrayList<>();
+
+			@Override
+			public Builder status(Status status) {
+				return (Builder) super.status(status);
+			}
+
+			@Override
+			public Builder actor(@NonNull String actor) {
+				return (Builder) super.actor(actor);
+			}
+
+			@Override
+			public Builder thought(@NonNull String thought) {
+				return (Builder) super.thought(thought);
+			}
+
+			@Override
+			public Builder observation(@NonNull String observation) {
+				return (Builder) super.observation(observation);
+			}
+
+			public Builder action(@NonNull String action) {
+				this.action = action;
+				return this;
+			}
+
+			public Builder actionInput(@NonNull String actionInput) {
+				this.actionInput = actionInput;
+				return this;
+			}
+
+			public Builder actionSteps(@NonNull List<? extends Step> steps) {
+				this.actionSteps = new ArrayList<>(steps);
+				return this;
+			}
+
+			public Builder addAllSteps(@NonNull List<? extends Step> steps) {
+				this.actionSteps.addAll(steps);
+				return this;
+			}
+
+			public Builder addStep(@NonNull Step step) {
+				this.actionSteps.add(step);
+				return this;
+			}
+
+			@Override
+			public ToolCallStep build() {
+				return new ToolCallStep(this);
+			}
+		}
+	}
+
+	/**
+	 * Any additional context you want to provide to the agent.
+	 */
+	@Getter
+	@Setter
+	private @NonNull String context = "";
+
+	/**
+	 * Any additional examples you want to provide to the agent.
+	 */
+	@Getter
+	@Setter
+	private @NonNull String examples = "";
+
+	@Getter(AccessLevel.PROTECTED)
+	private final @NonNull ExecutorModule executor;
+
+	@Getter(AccessLevel.PROTECTED)
+	private final @NonNull CriticModule reviewer;
+
+	// TODO Make it a wrapper of another agent instead? A lot of code forwarding...
+
+	public ReactAgent(@NonNull String id, @NonNull String description, @NonNull List<? extends Tool> tools,
+			boolean checkLastStep) {
+
+		// Only executor is using tools
+		super(id, description, new ArrayList<>());
+		setModel(DEFAULT_MODEL);
+		setTemperature(0d);
+
+		this.executor = new ExecutorModule(this, tools, checkLastStep, DEFAULT_MODEL);
+		this.reviewer = new CriticModule(this, tools, DEFAULT_MODEL);
+	}
+
+	public Step execute(@NonNull String command) throws JsonProcessingException {
+		return executor.execute(command);
+	}
+
+	public List<Step> getSteps() {
+		return executor.getSteps();
+	}
+
+	public static void main(String[] args) {
+		System.out.println(JsonSchema.getJsonSchema(ToolCallStep.class));
+	}
+}
+
+## ToolableReactAgent.java
+
+package com.infosys.small.react;
+
+import java.util.List;
+import java.util.Map;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import com.infosys.small.core.Agent;
+import com.infosys.small.core.JsonSchema;
+import com.infosys.small.core.Tool;
+import com.infosys.small.core.ToolCall;
+import com.infosys.small.core.ToolCallResult;
+import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaDescription;
+
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.Setter;
+
+/**
+ * This is a {@link ReactAgent} wrapped into a {@link Tool}, so it can be used
+ * as a tool by other agents.
+ */
+public class ToolableReactAgent extends ReactAgent implements Tool {
+
+	// TODO Maybe merge with ReactAgent? Might be a 6good idea to keep 7tool
+	// interface separated though
+	// TODO Maybe better to have a Tool wrapped as inner class rather than implement
+	// all get methods?
+
+	@JsonSchemaDescription("This describes parameters needed to call an execution agent")
+	public static class Parameters extends ReactAgent.Parameters {
+
+		@JsonProperty(required = true)
+		@JsonPropertyDescription("A question that this tool must answer or a command it must execute.")
+		public String question;
+	}
+
+	/**
+	 * Description for this tool.
+	 */
+	@Getter
+	private String description = "";
+
+	/**
+	 * JSON schema describing parameters for this tool.
+	 */
+	@Getter
+	private final String jsonParameters;
+
+	/**
+	 * True if this tool has been closed already.
+	 */
+	@Getter
+	@Setter(AccessLevel.PROTECTED)
+	private boolean closed = false;
+
+	/**
+	 * Agent using this tool.
+	 */
+	@Getter
+	private Agent agent;
+
+	/**
+	 * @return True if the tool has been initialized.
+	 */
+	@Override
+	public boolean isInitialized() {
+		return (getAgent() != null);
+	}
+
+	@Override
+	public void init(@NonNull Agent agent) {
+		if (isInitialized())
+			throw new RuntimeException("Tool " + getId() + " is already initialized");
+		if (closed)
+			throw new RuntimeException("Tool " + getId() + " is already closed");
+		this.agent = agent;
+	}
+
+	public ToolableReactAgent(@NonNull String id, @NonNull String description, @NonNull List<? extends Tool> tools,
+			boolean checkLastStep) {
+
+		super(id, description, tools, checkLastStep);
+		jsonParameters = JsonSchema.getJsonSchema(Parameters.class);
+	}
+
+	@Override
+	public ToolCallResult invoke(@NonNull ToolCall call) throws Exception {
+		if (!isInitialized())
+			throw new IllegalStateException("Tool must be initialized.");
+
+		String question = getString("question", call.getArguments());
+		if (question == null)
+			return new ToolCallResult(call, "ERROR: You must provide a command to execute as \"question\" parameter.");
+
+		Step result = execute(question);
+		switch (result.status) {
+		case ERROR:
+			return new ToolCallResult(call, "ERROR: " + result.observation);
+		default:
+			return new ToolCallResult(call, result.observation);
+		}
+	}
+
+	@Override
+	public void close() {
+		closed = true;
+		super.close();
+	}
+
+	// Utility methods to read parameters
+	// TODO URGENT be smarter
+	// ////////////////////////////////////////////////////////////////////////////////////////////
+
+	protected static boolean getBoolean(String name, Map<String, ? extends Object> args) {
+		if (args.containsKey(name))
+			return getBoolean(name, args.get(name));
+		throw new IllegalArgumentException("Missing required parameter \"" + name + "\".");
+	}
+
+	protected static boolean getBoolean(String name, Map<String, ? extends Object> args, boolean def) {
+		if (!args.containsKey(name))
+			return def;
+		return getBoolean(name, args.get(name));
+	}
+
+	private static boolean getBoolean(String name, Object value) {
+		String s = value.toString();
+		if ("true".equals(s.trim().toLowerCase()))
+			return true;
+		if ("false".equals(s.trim().toLowerCase()))
+			return false;
+
+		throw new IllegalArgumentException(
+				"Parameter \"" + name + "\" is expected to be a boolean value but it is not.");
+	}
+
+	protected static long getLong(String name, Map<String, ? extends Object> args) {
+		if (args.containsKey(name))
+			return getLong(name, args.get(name));
+		throw new IllegalArgumentException("Missing required parameter \"" + name + "\".");
+	}
+
+	protected static long getLong(String name, Map<String, ? extends Object> args, long def) {
+		if (!args.containsKey(name))
+			return def;
+		return getLong(name, args.get(name));
+	}
+
+	private static long getLong(String name, Object value) {
+		try {
+			return Long.parseLong(value.toString());
+		} catch (Exception e) {
+			throw new IllegalArgumentException(
+					"Parameter \"" + name + "\" is expected to be a integer value but it is not.");
+		}
+	}
+
+	protected static double getDouble(String name, Map<String, ? extends Object> args) {
+		if (args.containsKey(name))
+			return getDouble(name, args.get(name));
+		throw new IllegalArgumentException("Missing required parameter \"" + name + "\".");
+	}
+
+	protected static double getDouble(String name, Map<String, ? extends Object> args, double def) {
+		if (!args.containsKey(name))
+			return def;
+		return getDouble(name, args.get(name));
+	}
+
+	protected static double getDouble(String name, Object value) {
+		try {
+			return Double.parseDouble(value.toString());
+		} catch (Exception e) {
+			throw new IllegalArgumentException(
+					"Parameter \"" + name + "\" is expected to be a decimal number but it is not.");
+		}
+	}
+
+	protected static String getString(String name, Map<String, ? extends Object> args) {
+		Object result = args.get(name);
+		if (result == null)
+			return null;
+		return result.toString();
+	}
+
+	protected static String getString(String name, Map<String, ? extends Object> args, String def) {
+		if (!args.containsKey(name))
+			return def;
+		return getString(name, args);
+	}
+}
+
 </java>
 
 <python>
 
-## JsonSchema
+## json_schema.py
 
 from __future__ import annotations
 
@@ -1946,7 +2884,7 @@ class JsonSchema:
         adapter = TypeAdapter(cls)
         return adapter.validate_json(json_str, strict=False)
         
-## Tool & AbstractTool
+## tool.py 
 
 from __future__ import annotations
 
@@ -2135,30 +3073,6 @@ class AbstractTool(Tool):
         
 ## ChatMessage and related classes
 
-
-"""chat_types.py
-
-Auto‑generated Python translation of several Java classes:
-
-- ChatCompletion
-- ChatMessage (+ nested Author)
-- MessagePart (interface)
-- TextPart
-- ToolCall (with fluent Builder)
-- ToolCallResult
-- FinishReason (nested in ChatCompletion)
-
-The implementation follows the translation guidelines supplied:
-* CamelCase → snake_case for identifiers.
-* Lombok‑generated boiler‑plate is made explicit.
-* Overloaded constructors mapped to a single __init__ with @overload helpers.
-* Builder patterns translated into fluent interfaces.
-* Java RuntimeException / IllegalArgumentException mapped to Python RuntimeError / ValueError.
-* Logging uses Python’s stdlib 'logging' module.
-* JSON (de)serialisation leverages the provided JsonSchema helper.
-
-The module purposefully contains **no** external side‑effects.
-"""
 
 from __future__ import annotations
 
@@ -2497,7 +3411,7 @@ class ChatCompletion:
         """Parse the textual content as JSON into *cls*."""
         return self.message.get_object_content(cls)
 
-## Agent
+## agent.py
 
 """agent.py
 
@@ -2808,6 +3722,38 @@ class Agent:
         }
         return mapping.get(finish, ChatCompletion.FinishReason.OTHER)
 
+	# Finish-reason mapping ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #      
+    @staticmethod
+    def fill_slots(template: str, slots: Mapping[str, Any]) -> str:  
+        """
+        Replace every ``{{key}}`` in *template* with the corresponding value
+        from *slots*. Unknown keys are left untouched; *None* is replaced by
+        the empty string.
+
+        Parameters
+        ----------
+        template : str
+            A string containing ``{{placeholders}}``.
+        slots : Mapping[str, Any]
+            Values to inject into the template.
+
+        Returns
+        -------
+        str
+            The rendered string.
+        """
+        if template is None:
+            raise ValueError("template must not be None")
+        if slots is None:
+            raise ValueError("slots must not be None")
+
+        def _sub(match: re.Match[str]) -> str:
+            key = match.group(1).strip()
+            value = slots.get(key)
+            return "" if value is None else str(value)
+
+        return re.sub(r"\{\{([^}]+)\}\}", _sub, template)
+        
     # --------------------------- teardown ----------------------------- #
     def close(self) -> None:
         """Close all tools; nothing required for *openai* client."""
@@ -2817,5 +3763,978 @@ class Agent:
             except Exception:  # noqa: BLE001
                 logger.exception("Error while closing tool %s", tool.id)
 
+
+##  react_step.py
+from __future__ import annotations
+
+import logging
+from enum import Enum
+from typing import List, Self
+
+from pydantic import BaseModel, Field, model_validator
+
+# --------------------------------------------------------------------------- #
+# Logging configuration (equivalent to Java SimpleLogger)
+# --------------------------------------------------------------------------- #
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+class Status(str, Enum):
+    """Execution status for a ReAct step."""
+
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    ERROR = "ERROR"
+
+
+class Step(BaseModel):
+    """
+    Python equivalent of `ReactAgent.Step`.
+
+    Fields
+    ------
+    status       : optional execution status.
+    actor        : identifier of the agent/tool performing the step.
+    thought      : reasoning for this step.
+    observation  : outcome, error details, or any additional data.
+    """
+
+    status: Status | None = Field(
+        default=None,
+        description=(
+            "If you finish the execution or experience an unrecoverable error, "
+            "set this to either COMPLETED or ERROR respectively."
+        ),
+    )
+    actor: str = Field(..., description="The tool or agent that executed this step.")
+    thought: str = Field(
+        ...,
+        description="Your reasoning about why and how you accomplish this step.",
+    )
+    observation: str = Field(
+        ...,
+        description="Any additional data, like step outcomes, error messages, etc.",
+    )
+
+    # ------------------------------------------------------------------ #
+    # Fluent builder pattern
+    # ------------------------------------------------------------------ #
+    class Builder:
+        def __init__(self) -> None:
+            self._status: Status | None = None
+            self._actor: str | None = None
+            self._thought: str | None = None
+            self._observation: str | None = None
+
+        # --- fluent setters ------------------------------------------- #
+        def status(self, status: Status) -> Self:  # noqa: D401
+            self._status = status
+            return self
+
+        def actor(self, actor: str) -> Self:  # noqa: D401
+            if actor is None:
+                raise ValueError("actor must not be None")
+            self._actor = actor
+            return self
+
+        def thought(self, thought: str) -> Self:  # noqa: D401
+            if thought is None:
+                raise ValueError("thought must not be None")
+            self._thought = thought
+            return self
+
+        def observation(self, observation: str) -> Self:  # noqa: D401
+            if observation is None:
+                raise ValueError("observation must not be None")
+            self._observation = observation
+            return self
+
+        # --- build ----------------------------------------------------- #
+        def build(self) -> "Step":
+            return Step(
+                status=self._status,
+                actor=self._actor or self._raise("actor"),
+                thought=self._thought or self._raise("thought"),
+                observation=self._observation or self._raise("observation"),
+            )
+
+        # --- helpers --------------------------------------------------- #
+        @staticmethod
+        def _raise(field_name: str) -> None:
+            raise ValueError(f"{field_name} must not be None")
+
+    # Provide static factory for parity with Java
+    @staticmethod
+    def builder() -> "Step.Builder":
+        return Step.Builder()
+
+
+class ToolCallStep(Step):
+    """
+    Python equivalent of `ReactAgent.ToolCallStep`, extending `Step`.
+    """
+
+    action: str = Field(
+        ...,
+        description="The action that was taken at this step. Typically a tool invocation.",
+    )
+    action_input: str = Field(
+        ...,
+        alias="action_input",
+        description="Input for the action.",
+    )
+    action_steps: List[Step] = Field(
+        default_factory=list,
+        alias="action_steps",
+        description=(
+            "If the action was delegated to another agent, this is the list "
+            "of steps that agent performed."
+        ),
+    )
+
+    # ------------------------------------------------------------------ #
+    # Fluent builder pattern
+    # ------------------------------------------------------------------ #
+    class Builder(Step.Builder):
+        def __init__(self) -> None:
+            super().__init__()
+            self._action: str | None = None
+            self._action_input: str | None = None
+            self._action_steps: List[Step] = []
+
+        # --- fluent setters ------------------------------------------- #
+        def action(self, action: str) -> Self:  # noqa: D401
+            if action is None:
+                raise ValueError("action must not be None")
+            self._action = action
+            return self
+
+        def action_input(self, action_input: str) -> Self:  # noqa: D401
+            if action_input is None:
+                raise ValueError("action_input must not be None")
+            self._action_input = action_input
+            return self
+
+        def action_steps(self, steps: List[Step]) -> Self:  # noqa: D401
+            self._action_steps = list(steps)
+            return self
+
+        def add_step(self, step: Step) -> Self:  # noqa: D401
+            self._action_steps.append(step)
+            return self
+
+        # --- build ----------------------------------------------------- #
+        def build(self) -> "ToolCallStep":
+            return ToolCallStep(
+                status=self._status,
+                actor=self._actor or self._raise("actor"),
+                thought=self._thought or self._raise("thought"),
+                observation=self._observation or self._raise("observation"),
+                action=self._action or self._raise("action"),
+                action_input=self._action_input or self._raise("action_input"),
+                action_steps=self._action_steps,
+            )
+
+    # Provide static factory for parity with Java
+    @staticmethod
+    def builder() -> "ToolCallStep.Builder":
+        return ToolCallStep.Builder()
+
+    # ------------------------------------------------------------------ #
+    # Ensure alias names work both ways
+    # ------------------------------------------------------------------ #
+    model_config = {"populate_by_name": True}
+
+    # ------------------------------------------------------------------ #
+    # Validation to keep `status` optional but consistent
+    # ------------------------------------------------------------------ #
+    @model_validator(mode="after")
+    def _check_required(cls, values):  # noqa: N805
+        # actor, thought, observation, action, action_input are ensured by Pydantic
+        return values
+
+## react_agent.py
+
+from __future__ import annotations
+
+import logging
+from typing import List, Sequence, TYPE_CHECKING
+
+from pydantic import BaseModel, Field
+
+from agent import Agent
+from tool import Tool
+from steps import Step  # Step and ToolCallStep are already provided
+
+if TYPE_CHECKING:  # avoid circular imports at runtime
+    from executor_module import ExecutorModule
+    from critic_module import CriticModule
+
+
+# --------------------------------------------------------------------------- #
+# Logging configuration (equivalent to Java SimpleLogger)
+# --------------------------------------------------------------------------- #
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+class ReactAgent(Agent):
+    """
+    Python port of the Java `ReactAgent`.
+
+    A ReAct agent is composed of:
+      • an *executor* module in charge of reasoning/acting with tools;
+      • a *reviewer* (critic) module that audits the executor’s decisions.
+
+    Only the *executor* receives the tool list; the wrapper itself does **not**
+    expose tools directly.
+    """
+
+    DEFAULT_MODEL: str = "gpt-4.1"
+
+    # --------------------------------------------------------------------- #
+    # Nested helper - Parameters (for tools that wrap the agent)
+    # --------------------------------------------------------------------- #
+    class Parameters(BaseModel):
+        """
+        Base parameters for any tool available to a ReAct agent.
+
+        This mirrors the static `Parameters` class defined in the Java version.
+        """
+
+        thought: str = Field(
+            ...,
+            description="Your reasoning about why this tool has been called.",
+        )
+
+    # --------------------------------------------------------------------- #
+    # Construction
+    # --------------------------------------------------------------------- #
+    def __init__(
+        self,
+        id_: str,
+        description: str,
+        tools: Sequence[Tool],
+        check_last_step: bool = True,
+    ) -> None:
+        # --- null-checks (mirrors @NonNull) --------------------------------
+        if id_ is None:
+            raise ValueError("id_ must not be None")
+        if description is None:
+            raise ValueError("description must not be None")
+        if tools is None:
+            raise ValueError("tools must not be None")
+
+        # Initialise the outer Agent **without** tools (only executor uses them)
+        super().__init__(id_=id_, description=description, tools=[])
+
+        # Model configuration mirrors the Java defaults
+        self.model = self.DEFAULT_MODEL
+        self.temperature = 0.0
+
+        # Additional context / few-shot examples the caller can set
+        self._context: str = ""
+        self._examples: str = ""
+
+        # Create the inner modules (executor & critic).  They are imported
+        # lazily to avoid circular-import issues.
+        from executor_module import ExecutorModule  # local import
+        from critic_module import CriticModule
+
+        self._executor: ExecutorModule = ExecutorModule(
+            agent=self,
+            tools=list(tools),
+            check_last_step=check_last_step,
+            model=self.DEFAULT_MODEL,
+        )
+        self._reviewer: CriticModule = CriticModule(
+            agent=self,
+            tools=list(tools),
+            model=self.DEFAULT_MODEL,
+        )
+
+    # --------------------------------------------------------------------- #
+    # Public API mirroring Java implementation
+    # --------------------------------------------------------------------- #
+    # Properties ----------------------------------------------------------- #
+    @property
+    def context(self) -> str:
+        return self._context
+
+    @context.setter
+    def context(self, value: str) -> None:
+        if value is None:
+            raise ValueError("context must not be None")
+        self._context = value
+
+    @property
+    def examples(self) -> str:
+        return self._examples
+
+    @examples.setter
+    def examples(self, value: str) -> None:
+        if value is None:
+            raise ValueError("examples must not be None")
+        self._examples = value
+
+    # Accessors for inner modules (read-only) ------------------------------ #
+    @property
+    def executor(self):  # → ExecutorModule
+        return self._executor
+
+    @property
+    def reviewer(self):  # → CriticModule
+        return self._reviewer
+
+    # Delegated behaviour -------------------------------------------------- #
+    def execute(self, command: str) -> Step:
+        """
+        Execute *command* through the underlying executor module and
+        return the final `Step`.
+        """
+        if command is None:
+            raise ValueError("command must not be None")
+        logger.info("Executing command: %s", command)
+        return self._executor.execute(command)
+
+    def get_steps(self) -> List[Step]:
+        """Expose the list of execution steps gathered by the executor."""
+        return self._executor.steps
+
+## critic_module.py
+
+from __future__ import annotations
+
+import logging
+from typing import List, Mapping
+
+from agent import Agent
+from json_schema import JsonSchema
+from react_agent import ReactAgent
+from steps import Step, ToolCallStep
+from tool import Tool
+
+# --------------------------------------------------------------------------- #
+# Logging configuration (equivalent to Java SimpleLogger)
+# --------------------------------------------------------------------------- #
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+class CriticModule(Agent):
+    """
+    Critic component of a `ReactAgent`.
+
+    It reviews the executor’s actions and suggests improvements when necessary.
+    """
+
+    # --------------------------------------------------------------------- #
+    # Prompt templates
+    # --------------------------------------------------------------------- #
+    _PROMPT_TEMPLATE: str = (
+        "# Identity\n\n"
+        "You are a reviewer agent; your task is to monitor how an executor agent "
+        "tries to execute user's commands and provide suggestion to improve execution.\n"
+        "The specific user's command the executor is trying to execute is provided "
+        "in the below <user_command> tag.\n"
+        "\n<user_command>\n{{command}}\n</user_command>\n\n"
+        "You will be provided by the user with a potentially empty list of execution "
+        "steps, in <steps> tag, that have been already performed by the executor in "
+        "its attempt to execute the user's command. The format of these steps is "
+        "provided as a JSON schema in <step_format> tag below. In these steps, the "
+        'executor agent is identified with actor=="{{executor_id}}".\n'
+        "\n<step_format>\n"
+        + JsonSchema.get_json_schema(ToolCallStep) +
+        "\n</step_format>\n\n"
+        "\n# Additional Context and Information\n\n"
+        "  * In order to execute the command, the executor agent has the tools "
+        "described in the below <tools> tag at its disposal:\n\n"
+        "<tools>\n{{tools}}\n</tools>\n\n"
+        "{{context}}\n"
+    )
+
+    _REVIEW_TOOL_CALL_TEMPLATE: str = (
+        _PROMPT_TEMPLATE
+        + "\n# Instructions\n\n"
+        "  * If the steps contain evidence that the executor entered a loop calling "
+        "the same tool repeatedly with identical parameters, suggest strictly calling "
+        "another tool for the next step.\n"
+        "  * If and only if the last step contains a tool call that resulted in an "
+        "error, inspect the tool definition and check for missing or unsupported "
+        "parameters; attempt to retrieve missing parameter values from previous "
+        'steps’ "observation" fields. Suggest repeating the call with the recovered '
+        "values and flag unsupported parameters.\n"
+        '  * **IMPORTANT** In every other case, or when no relevant advice applies, '
+        'output exactly "CONTINUE". Do not add comments when outputting "CONTINUE", '
+        "and do not output \"CONTINUE\" when you have a suggestion."
+    )
+
+    _REVIEW_CONCLUSIONS_TEMPLATE: str = (
+        _PROMPT_TEMPLATE
+        + "\n# Instructions\n\n"
+        '  * If, and only if, the last step has status="ERROR", carefully inspect all '
+        "steps to identify the root cause and provide a remediation suggestion.\n"
+        '  * If, and only if, the last step has status="COMPLETED", verify through '
+        '"observation" or "thought" fields that no further work is pending; if more '
+        "actions are required, suggest those actions.\n"
+        '  * **IMPORTANT** In every other scenario, or when no advice is relevant, '
+        'output exactly "CONTINUE". Do not add comments when outputting "CONTINUE".\n'
+        '  * Consider a tool invocation valid evidence only when an "action" field '
+        "explicitly references a tool; ignore claims in \"thought\" or \"observation\" "
+        "that are not backed by such evidence.\n"
+        "{{examples}}\n"
+    )
+
+    # --------------------------------------------------------------------- #
+    # Constructor
+    # --------------------------------------------------------------------- #
+    def __init__(
+        self,
+        agent: ReactAgent,
+        tools: List[Tool],
+        model: str,
+    ) -> None:
+        if agent is None:
+            raise ValueError("agent must not be None")
+        if tools is None:
+            raise ValueError("tools must not be None")
+        if model is None:
+            raise ValueError("model must not be None")
+
+        # The critic does not call any tool, therefore `tools=[]`
+        super().__init__(
+            id_=f"{agent.id}-critic",
+            description=f"Critic module for {agent.id} agent",
+            tools=[],
+        )
+        self._agent: ReactAgent = agent
+        self._tools: List[Tool] = list(tools)
+
+        self.temperature = 0.0
+        self.model = model
+
+    # ------------------------------------------------------------------ #
+    # Read-only properties
+    # ------------------------------------------------------------------ #
+    @property
+    def agent(self) -> ReactAgent:  # noqa: D401
+        """Return the parent `ReactAgent`."""
+        return self._agent
+
+    # ------------------------------------------------------------------ #
+    # Public API
+    # ------------------------------------------------------------------ #
+    def review_tool_call(self, steps: List[Step]) -> str:
+        """Review the latest tool call performed by the executor."""
+        return self._review(self._REVIEW_TOOL_CALL_TEMPLATE, steps)
+
+    def review_conclusions(self, steps: List[Step]) -> str:
+        """Review the executor’s final conclusions."""
+        return self._review(self._REVIEW_CONCLUSIONS_TEMPLATE, steps)
+
+    # ------------------------------------------------------------------ #
+    # Internal logic
+    # ------------------------------------------------------------------ #
+    def _review(self, template: str, steps: List[Step]) -> str:
+        if steps is None:
+            raise ValueError("steps must not be None")
+
+        # Prepare placeholders for the prompt
+        mapping: Mapping[str, str] = {
+            "command": self._agent.executor.command,
+            "executor_id": self._agent.executor.id,
+            "context": self._agent.context,
+            "tools": self._build_tool_description(self._tools),
+            "steps": JsonSchema.serialize(steps),
+        }
+
+        # Set critic personality
+        self.personality = Agent.fill_slots(template, mapping)
+
+        # As in Java: send the same message twice
+        self.clear_conversation()
+        prompt = Agent.fill_slots("<steps>\n{{steps}}\n</steps>", mapping)
+        suggestion = self.chat(prompt).get_text()
+        logger.debug("**** Suggestion: %s", suggestion)
+
+        # Second call (mirrors original behaviour)
+        return self.chat(prompt).get_text()
+
+    # ------------------------------------------------------------------ #
+    # Helpers
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _build_tool_description(tools: List[Tool]) -> str:
+        """
+        Build a human-readable description of the tools available to the executor.
+        """
+        sections: List[str] = []
+        for tool in tools:
+            sections.extend(
+                [
+                    "## Tool\n\n",
+                    f"### Tool ID: {tool.id}\n",
+                    "### Tool Description\n",
+                    f"{tool.description}\n",
+                    "### Tool Parameters (as JSON schema)\n",
+                    f"{tool.json_parameters}\n\n",
+                ]
+            )
+        return "".join(sections)
+        
+# executor_module.py
+
+from __future__ import annotations
+
+import logging
+import json
+from typing import Any, Dict, List, Mapping, Sequence, TYPE_CHECKING
+
+from agent import Agent
+from chat_types import ChatCompletion, ChatMessage, ToolCall, ToolCallResult, TextPart
+from json_schema import JsonSchema
+from steps import Step, ToolCallStep, Status
+from tool import Tool
+
+if TYPE_CHECKING:  # circular-import guards
+    from react_agent import ReactAgent
+    from critic_module import CriticModule
+
+# --------------------------------------------------------------------------- #
+# Logging configuration (equivalent to Java SimpleLogger)
+# --------------------------------------------------------------------------- #
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+# --------------------------------------------------------------------------- #
+# ExecutorModule ­– executes the user command through reasoning & tools
+# --------------------------------------------------------------------------- #
+class ExecutorModule(Agent):
+    """
+    Executor component of a :class:`react_agent.ReactAgent`.
+
+    It plans and carries out the steps needed to fulfil a user command,
+    leveraging the tools provided by the parent *ReactAgent*.
+    """
+
+    # ------------------------------------------------------------------ #
+    # Constants
+    # ------------------------------------------------------------------ #
+    MAX_STEPS: int = 40  # hard stop to avoid infinite loops
+
+    _PROMPT_TEMPLATE: str = (
+        "# Identity\n\n"
+        "You are a ReAct (Reasoning and Acting) agent; your task is to execute "
+        "the below user command in <user_command> tag.\n"
+        "\n<user_command>\n{{command}}\n</user_command>\n\n"
+        "You will be provided by the user with a potentially empty list of execution "
+        "steps, in <steps> tag, that you have already performed in an attempt to "
+        "execute the user's command. The format of these steps is provided as a JSON "
+        "schema in <step_format> tag below.\n"
+        "\n<step_format>\n"
+        + JsonSchema.get_json_schema(ToolCallStep)
+        + "\n</step_format>\n\n"
+        "Together with the list of steps, the user might provide a suggestion about "
+        "how to execute the next step.\n"
+        "\n# Additional Context and Information\n\n"
+        " * You are identified with actor=={{id}} in execution steps."
+        "{{context}}\n\n"
+        "\n# Instructions\n\n"
+        "  * Carefully plan the steps required to execute the user's command, think "
+        "it step by step.\n"
+        "  * If the user provided a suggestion about how to progress execution, then "
+        "**STRICTLY** follow that suggestion when planning the next step. The "
+        "suggestion applies only to the very next step.\n"
+        "  * At each step use the most suitable tool at your disposal. **NEVER** "
+        "output a step to *describe* a tool call – call the tool directly.\n"
+        "  * Your tools have no access to <steps>; therefore pass every required "
+        "parameter explicitly.\n"
+        "  * When you are completely done, output a final step with status="
+        "\"COMPLETED\". Do **NOT** output status=\"COMPLETED\" if work remains.\n"
+        "  * If you encounter an unrecoverable error, output a final step with "
+        "status=\"ERROR\" and provide a detailed explanation in the \"observation\" "
+        "field. Otherwise use status=\"IN_PROGRESS\" sparingly.\n"
+        "  * The final step **MUST** match the JSON schema in <output_schema>.\n"
+        "\n<output_schema>\n"
+        + JsonSchema.get_json_schema(Step)
+        + "\n</output_schema>\n"
+        "\n## Other Examples\n\n"
+        "{{examples}}\n"
+    )
+
+    # ------------------------------------------------------------------ #
+    # Construction
+    # ------------------------------------------------------------------ #
+    def __init__(
+        self,
+        agent: "ReactAgent",
+        tools: Sequence[Tool],
+        check_last_step: bool,
+        model: str,
+    ) -> None:
+        if agent is None:
+            raise ValueError("agent must not be None")
+        if tools is None:
+            raise ValueError("tools must not be None")
+        if model is None:
+            raise ValueError("model must not be None")
+
+        super().__init__(
+            id_=f"{agent.id}-executor",
+            description=f"Executor module for {agent.id} agent",
+            tools=list(tools),
+        )
+
+        self._agent: ReactAgent = agent
+        self._check_last_step: bool = bool(check_last_step)
+
+        # Runtime state
+        self._command: str | None = None
+        self._steps: List[Step] = []
+
+        # Model configuration
+        self.temperature = 0.0
+        self.model = model
+        self.set_response_format(Step)
+
+    # ----------------------------- props ------------------------------- #
+    @property
+    def agent(self) -> "ReactAgent":  # noqa: D401
+        return self._agent
+
+    @property
+    def check_last_step(self) -> bool:  # noqa: D401
+        return self._check_last_step
+
+    @property
+    def command(self) -> str | None:  # noqa: D401
+        return self._command
+
+    # Steps list (read-only) ------------------------------------------- #
+    @property
+    def steps(self) -> List[Step]:  # noqa: D401
+        return self._steps
+
+    # Convenience ------------------------------------------------------- #
+    def get_last_step(self) -> Step | None:
+        return self._steps[-1] if self._steps else None
+
+    def add_step(self, step: Step) -> None:
+        self._steps.append(step)
+        # TODO: persist step to external storage if required
+        logger.info(JsonSchema.serialize(step))
+
+    # ------------------------------------------------------------------ #
+    # Public API
+    # ------------------------------------------------------------------ #
+    def execute(self, command: str) -> Step:
+        """
+        Execute *command* and return the final :class:`steps.Step`.
+        """
+        if command is None:
+            raise ValueError("command must not be None")
+
+        self._command = command
+        self._steps.clear()
+
+        # ---------------- build persona -------------------------------- #
+        slots: Mapping[str, str] = {
+            "command": command,
+            "id": self.id,
+            "context": self.agent.context,
+            "examples": self.agent.examples,
+        }
+        self.personality = Agent.fill_slots(self._PROMPT_TEMPLATE, slots)
+
+        # ---------------- first bookkeeping step ----------------------- #
+        first_step = (
+            Step.builder()
+            .actor(self.id)
+            .status(Status.IN_PROGRESS)
+            .thought(
+                Agent.fill_slots(
+                    (
+                        "I am starting execution of the below user's command in "
+                        "<user_command>\n\n<user_command>\n{{command}}\n</user_command>"
+                    ),
+                    slots,
+                )
+            )
+            .observation("Execution just started.")
+            .build()
+        )
+        self.add_step(first_step)
+
+        # ---------------- execution loop ------------------------------- #
+        suggestion: str = (
+            "No suggestions. Proceed as you see best, using the tools at your disposal."
+        )
+        instructions_tpl: str = "<steps>\n{{steps}}\n</steps>\n\nSuggestion: {{suggestion}}"
+
+        while (
+            len(self._steps) < self.MAX_STEPS
+            and (
+                self.get_last_step() is None
+                or self.get_last_step().status is None
+                or self.get_last_step().status == Status.IN_PROGRESS
+            )
+        ):
+            # ---- prepare prompt -------------------------------------- #
+            self.clear_conversation()
+            steps_json = json.dumps(
+                [
+                    s.model_dump(exclude={"action_steps"})
+                    if isinstance(s, ToolCallStep)
+                    else s.model_dump()
+                    for s in self._steps
+                ],
+                separators=(",", ":"),
+            )
+            prompt_slots = {
+                **slots,
+                "steps": steps_json,
+                "suggestion": suggestion,
+            }
+            prompt = Agent.fill_slots(instructions_tpl, prompt_slots)
+
+            # ---- call the LLM ---------------------------------------- #
+            try:
+                reply = self.chat(prompt)
+            except Exception as exc:  # LLM invocation failed
+                error_step = (
+                    ToolCallStep.builder()
+                    .actor(self.id)
+                    .status(Status.ERROR)
+                    .thought("I had something in mind...")
+                    .action("LLM was called but this resulted in an error.")
+                    .action_input(prompt)
+                    .action_steps([])
+                    .observation(str(exc))
+                    .build()
+                )
+                self.add_step(error_step)
+                break
+
+            if reply.finish_reason != ChatCompletion.FinishReason.COMPLETED:
+                truncated_step = (
+                    ToolCallStep.builder()
+                    .actor(self.id)
+                    .status(Status.ERROR)
+                    .thought("I had something in mind...")
+                    .action("LLM was called but this resulted in a truncated message.")
+                    .action_input(prompt)
+                    .action_steps([])
+                    .observation(f"Response finish reason: {reply.finish_reason}")
+                    .build()
+                )
+                self.add_step(truncated_step)
+                break
+
+            # ---- process LLM output ---------------------------------- #
+            if reply.message.has_tool_calls():  # the model invoked tools
+                with_error = False
+                for call in reply.message.get_tool_calls():
+                    try:
+                        result = call.execute()
+                    except Exception as exc:  # tool raised
+                        result = ToolCallResult.from_exception(call, exc)
+                        with_error = True
+                    else:
+                        with_error |= (
+                            isinstance(result.result, str)
+                            and "error" in result.result.lower()
+                        )
+
+                    # store step
+                    args_no_thought = dict(call.arguments)
+                    thought = args_no_thought.pop("thought", "No thought passed explicitly.")
+                    call_step = (
+                        ToolCallStep.builder()
+                        .actor(self.id)
+                        .status(Status.IN_PROGRESS)
+                        .thought(str(thought))
+                        .action(f'The tool "{call.tool.id}" has been called')
+                        .action_input(JsonSchema.serialize(args_no_thought))
+                        .action_steps(
+                            call.tool.agent.get_steps()  # type: ignore[attr-defined]
+                            if hasattr(call.tool, "agent") and isinstance(call.tool.agent, ReactAgent)
+                            else []
+                        )
+                        .observation(str(result.result))
+                        .build()
+                    )
+                    self.add_step(call_step)
+
+                    if len(self._steps) > self.MAX_STEPS:
+                        break
+
+                # ask critic if needed
+                if len(self._steps) <= self.MAX_STEPS:
+                    suggestion = (
+                        self.agent.reviewer.review_tool_call(self._steps)
+                        if with_error
+                        else "CONTINUE"
+                    )
+            else:  # plain text → expect JSON step
+                try:
+                    step_obj = reply.get_object(Step)
+                    step_obj.actor = self.id  # enforce correct actor
+                    self.add_step(step_obj)
+                except Exception as exc:  # JSON parsing failed
+                    fallback = (
+                        Step.builder()
+                        .actor(self.id)
+                        .status(Status.ERROR)
+                        .thought(f"I stopped because I encountered this error: {exc}")
+                        .observation(reply.get_text())
+                        .build()
+                    )
+                    self.add_step(fallback)
+
+                # decide next suggestion
+                if self.get_last_step().status == Status.IN_PROGRESS:
+                    suggestion = "**STRICTLY** proceed with next steps, by calling appropriate tools."
+                elif self._check_last_step:
+                    suggestion = self.agent.reviewer.review_conclusions(self._steps)
+                    if "continue" not in suggestion.lower():
+                        # force continuation
+                        self.get_last_step().status = Status.IN_PROGRESS
+
+        # ---------------- loop finished ------------------------------- #
+        if len(self._steps) >= self.MAX_STEPS:
+            overflow_step = (
+                Step.builder()
+                .actor(self.id)
+                .status(Status.ERROR)
+                .thought(
+                    f"Execution was stopped because it exceeded maximum number of steps "
+                    f"({self.MAX_STEPS})."
+                )
+                .observation("I probably entered some kind of loop.")
+                .build()
+            )
+            self.add_step(overflow_step)
+            logger.error("Maximum steps exceeded; aborting execution.")
+
+        return self.get_last_step()  # type: ignore[return-value]
+
+# toolable_react_agent.py
+
+from __future__ import annotations
+
+import logging
+from typing import Sequence
+
+from pydantic import Field
+
+from agent import Agent  # for type hints only
+from react_agent import ReactAgent
+from steps import Step, Status
+from tool import AbstractTool, Tool, ToolCall, ToolCallResult
+
+# ---------------------------------------------------------------------------#
+# Logging configuration (Java-style simple logger)
+# ---------------------------------------------------------------------------#
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------#
+# ToolableReactAgent
+# ---------------------------------------------------------------------------#
+class ToolableReactAgent(ReactAgent, AbstractTool):
+    """
+    A `ReactAgent` that can be used as a `Tool` by another agent.
+
+    It inherits behaviour from both `ReactAgent` (conversation logic) and
+    `AbstractTool` (tool life-cycle & helpers).
+    """
+
+    # --------------------------- parameters --------------------------- #
+    class Parameters(ReactAgent.Parameters):
+        """JSON-serialisable parameters for invoking the tool."""
+
+        question: str = Field(
+            ...,
+            description=(
+                "A question that this tool must answer or a command it must execute."
+            ),
+        )
+
+    # ----------------------------- init ------------------------------- #
+    def __init__(
+        self,
+        id_: str,
+        description: str,
+        tools: Sequence[Tool],
+        check_last_step: bool = True,
+    ) -> None:
+        # Initialise the ReactAgent part (handles reasoning & tools)
+        ReactAgent.__init__(
+            self,
+            id_=id_,
+            description=description,
+            tools=tools,
+            check_last_step=check_last_step,
+        )
+
+        # Initialise the AbstractTool part (exposes tool metadata)
+        AbstractTool.__init__(
+            self,
+            id_=id_,
+            description=description,
+            parameters_cls=ToolableReactAgent.Parameters,
+        )
+
+    # --------------------------- overrides ---------------------------- #
+    def invoke(self, call: ToolCall) -> ToolCallResult:  # noqa: D401
+        """
+        Execute the wrapped ReAct agent to answer *question*.
+
+        The `question` parameter is mandatory; errors are returned in
+        `ToolCallResult` following the Java semantics.
+        """
+        if not self.is_initialized():
+            raise RuntimeError("Tool must be initialized before invocation.")
+
+        question = self.get_string("question", call.arguments)
+        if question is None:
+            return ToolCallResult.from_call(
+                call,
+                'ERROR: You must provide a command to execute as "question" parameter.',
+            )
+
+        # Delegate to the executor module of the underlying ReactAgent
+        result_step: Step = self.execute(question)
+
+        if result_step.status == Status.ERROR:
+            return ToolCallResult.from_call(call, f"ERROR: {result_step.observation}")
+
+        return ToolCallResult.from_call(call, result_step.observation)
+
+    # ------------------------------------------------------------------ #
+    # Clean-up
+    # ------------------------------------------------------------------ #
+    def close(self) -> None:
+        """Close both the tool and the underlying agent."""
+        AbstractTool.close(self)
+        ReactAgent.close(self)
 
 </python>
