@@ -1,31 +1,43 @@
 # lab_agent.py
+"""
+Python translation of `com.infosys.small.pnbc.LabAgent`.
+
+The class extends `ToolableReactAgent` to provide simulation capabilities
+through an `ExecutionContext` and can itself be used as a tool.
+"""
+
 from __future__ import annotations
 
 import logging
 from typing import Sequence
 
-from executor_module import ExecutorModule
+from chat_types import ToolCall, ToolCallResult
 from execution_context import ExecutionContext
-from react_agent import Step
-from steps import Status
-from tool import Tool, ToolCall, ToolCallResult
+from steps import Status, Step
+from tool import Tool
 from toolable_react_agent import ToolableReactAgent
 
+# --------------------------------------------------------------------------- #
+# Logging (equivalent to Java SimpleLogger)
+# --------------------------------------------------------------------------- #
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
+# --------------------------------------------------------------------------- #
+# LabAgent
+# --------------------------------------------------------------------------- #
 class LabAgent(ToolableReactAgent):
     """
-    Python translation of `com.infosys.small.pnbc.LabAgent`.
-
-    A *ReAct* agent able to execute commands in a **simulated** environment
-    through an :class:`ExecutionContext`.  It can also be exposed as a *tool*
-    for use by other agents.
+    An agent able to orchestrate simulated processes through an
+    :class:`ExecutionContext`. The agent can also be invoked as a tool
+    by other agents.
     """
 
-    # ------------------------------------------------------------------ #
-    # Construction
-    # ------------------------------------------------------------------ #
+    # ----------------------------- init ---------------------------------- #
     def __init__(
         self,
         id_: str,
@@ -39,68 +51,62 @@ class LabAgent(ToolableReactAgent):
             tools=tools,
             check_last_step=check_last_step,
         )
-        self._execution_context: ExecutionContext | None = None
+        self.execution_context: ExecutionContext | None = None
 
-    # ------------------------------------------------------------------ #
-    # Execution-context property (read-only from outside)
-    # ------------------------------------------------------------------ #
-    @property
-    def execution_context(self) -> ExecutionContext:
-        if self._execution_context is None:
-            raise RuntimeError("ExecutionContext is not set.")
-        return self._execution_context
-
-    # ------------------------------------------------------------------ #
-    # Database / scenario helpers
-    # ------------------------------------------------------------------ #
+    # ------------------------ helper accessors --------------------------- #
     def get_db(self) -> ExecutionContext.DbConnector:
+        if self.execution_context is None:
+            raise RuntimeError("Execution context is not set.")
         return self.execution_context.db
 
     def get_scenario_id(self) -> str:
+        if self.execution_context is None:
+            raise RuntimeError("Execution context is not set.")
         return self.execution_context.scenario_id
 
     def get_run_id(self) -> str:
+        if self.execution_context is None:
+            raise RuntimeError("Execution context is not set.")
         return self.execution_context.run_id
 
-    # ------------------------------------------------------------------ #
-    # Public API
-    # ------------------------------------------------------------------ #
+    def get_lab_agent(self) -> "LabAgent | None":  # noqa: D401
+        """
+        Return the outermost :class:`LabAgent` in the call chain (may be *self*),
+        or *None* if not running under a LabAgent.
+        """
+        agent = self._agent
+        if isinstance(agent, LabAgent):
+            return agent
+        from executor_module import ExecutorModule  # local import to break cycle
+
+        if isinstance(agent, ExecutorModule):
+            inner = agent.agent
+            if isinstance(inner, LabAgent):  # pragma: no cover
+                return inner
+        return None
+
+    # ------------------------- execution wrapper ------------------------- #
     def execute(self, ctx: ExecutionContext, command: str) -> Step:
         """
-        Run *command* inside *ctx* (simulation environment).
-
-        The context is attached for the duration of the call and cleared
-        afterwards, mimicking the Java `try/finally` behaviour.
+        Run a single command within the provided *ctx* simulation context.
         """
-        self._execution_context = ctx
-        try:
-            return super().execute(command)
-        finally:
-            self._execution_context = None
+        if ctx is None:
+            raise ValueError("ctx must not be None")
+        if command is None:
+            raise ValueError("command must not be None")
 
-    # ------------------------------------------------------------------ #
-    # Tool life-cycle overrides (when LabAgent is itself used as a tool)
-    # ------------------------------------------------------------------ #
-    def init(self, agent: "Agent") -> None:  # type: ignore[override]
-        if not isinstance(agent, ExecutorModule):
-            raise ValueError("This tool can only be used by ReAct agents.")
-        if not isinstance(agent.agent, LabAgent):
-            raise ValueError("This tool can only be used by LabAgent instances.")
-        super().init(agent)
+        self.execution_context = ctx
+        return super().execute(command)
 
-    @property
-    def agent(self) -> ExecutorModule:  # type: ignore[override]
-        return super()._agent  # type: ignore[attr-defined]
-
-    def get_lab_agent(self) -> "LabAgent":
-        return self.agent.agent  # type: ignore[return-value]
-
-    # ------------------------------------------------------------------ #
-    # Tool invocation (when wrapped as a Tool)
-    # ------------------------------------------------------------------ #
+    # ------------------------------ invoke ------------------------------- #
     def invoke(self, call: ToolCall) -> ToolCallResult:  # noqa: D401
+        """
+        Allow other agents to use this `LabAgent` as a tool.
+        """
+        if call is None:
+            raise ValueError("call must not be None")
         if not self.is_initialized():
-            raise RuntimeError("Tool must be initialized.")
+            raise RuntimeError("Tool must be initialized before invocation.")
 
         question = self.get_string("question", call.arguments)
         if question is None:
@@ -109,8 +115,12 @@ class LabAgent(ToolableReactAgent):
                 'ERROR: You must provide a command to execute as "question" parameter.',
             )
 
-        ctx = self.get_lab_agent().execution_context
-        step = self.execute(ctx, question)
+        parent_lab = self.get_lab_agent()
+        if parent_lab is None or parent_lab.execution_context is None:
+            return ToolCallResult.from_call(call, "ERROR: Execution context is missing.")
+
+        # Delegate execution within the caller’s context
+        step = self.execute(parent_lab.execution_context, question)
 
         if step.status == Status.ERROR:
             return ToolCallResult.from_call(call, f"ERROR: {step.observation}")

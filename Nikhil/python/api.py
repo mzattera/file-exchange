@@ -1,87 +1,108 @@
 # api.py
+"""
+Python translation of `com.infosys.small.pnbc.Api` – revised.
+
+A single `invoke(...)` method now handles both normal and logged calls by means
+of an optional `log` keyword-only flag.
+"""
+
 from __future__ import annotations
 
 import logging
-from typing import Any, Mapping
+from typing import Any, Mapping, TYPE_CHECKING
 
-from agent import Agent
-from executor_module import ExecutorModule
+from chat_types import ToolCall, ToolCallResult
 from execution_context import ExecutionContext
-from json_schema import JsonSchema  # used only for type hints here
-from scenario_component import ScenarioComponent  # assumed existing helper
-from tool import AbstractTool, ToolCall, ToolCallResult
+from executor_module import ExecutorModule
+from scenario_component import ScenarioComponent
+from tool import AbstractTool
 
+if TYPE_CHECKING:
+    from lab_agent import LabAgent
+
+# --------------------------------------------------------------------------- #
+# Logging
+# --------------------------------------------------------------------------- #
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
 class Api(AbstractTool):
-    """
-    Python translation of `com.infosys.small.pnbc.Api`.
+    """Abstract tool representing a simulated backend API."""
 
-    It is an *abstract* backend API wrapper that can only be used from the
-    *executor* module of a :class:`LabAgent`.
-    """
+    # --------------------------- construction --------------------------- #
+    def __init__(self, id_: str, description: str, schema: type) -> None:
+        if id_ is None:
+            raise ValueError("id_ must not be None")
+        if schema is None:
+            raise ValueError("schema must not be None")
 
-    # --------------------------------------------------------------------- #
-    # Construction / life-cycle
-    # --------------------------------------------------------------------- #
-    def __init__(self, id_: str, description: str, parameters_cls: type) -> None:
-        super().__init__(id_=id_, description=description, parameters_cls=parameters_cls)
+        super().__init__(id_=id_, description=description, parameters_cls=schema)
 
-    # ------------ initialisation checks (must run inside LabAgent) -------- #
-    def init(self, agent: Agent) -> None:  # noqa: D401 (“Returns None”)
-        if agent is None:
-            raise ValueError("agent must not be None")
+    # ------------------------ helper accessors ------------------------- #
+    def get_lab_agent(self) -> "LabAgent | None":
+        agent = self._agent
+        if isinstance(agent, LabAgent):  # type: ignore[name-defined]
+            return agent
+        if isinstance(agent, ExecutorModule):
+            inner = agent.agent
+            if isinstance(inner, LabAgent):  # type: ignore[name-defined]
+                return inner
+        return None
 
-        if not isinstance(agent, ExecutorModule):
-            raise ValueError("This tool can only be used by ReAct agents.")
-
-        if not isinstance(agent.agent, LabAgent):
-            raise ValueError("This tool can only be used by LabAgent instances.")
-
-        super().init(agent)
-
-    # Convenience cast ----------------------------------------------------- #
-    @property
-    def agent(self) -> ExecutorModule:  # type: ignore[override]
-        return super()._agent  # type: ignore[attr-defined]
-
-    def get_lab_agent(self) -> "LabAgent":
-        return self.agent.agent  # type: ignore[return-value]
-
-    # Execution-context helpers ------------------------------------------- #
-    # They are thin wrappers around LabAgent’s public attributes.
-    def get_execution_context(self) -> ExecutionContext:
-        return self.get_lab_agent().execution_context
+    def get_execution_context(self) -> ExecutionContext | None:
+        lab = self.get_lab_agent()
+        return lab.execution_context if lab else None
 
     def get_db(self) -> ExecutionContext.DbConnector:
-        return self.get_execution_context().db
+        ctx = self.get_execution_context()
+        if ctx is None:
+            raise RuntimeError("Execution context is not set.")
+        return ctx.db
 
     def get_scenario_id(self) -> str:
-        return self.get_execution_context().scenario_id
+        ctx = self.get_execution_context()
+        if ctx is None:
+            raise RuntimeError("Execution context is not set.")
+        return ctx.scenario_id
 
     def get_run_id(self) -> str:
-        return self.get_execution_context().run_id
+        ctx = self.get_execution_context()
+        if ctx is None:
+            raise RuntimeError("Execution context is not set.")
+        return ctx.run_id
 
-    # --------------------------------------------------------------------- #
-    # Core invocation logic
-    # --------------------------------------------------------------------- #
-    def invoke(self, call: ToolCall) -> ToolCallResult:  # noqa: D401
-        return self._invoke_internal(call, log=False)
-
-    # Extra entry with *log* flag, mirroring Java signature
-    def _invoke_internal(self, call: ToolCall, *, log: bool) -> ToolCallResult:
+    # ------------------------------ invoke ----------------------------- #
+    def invoke(self, call: ToolCall, *, log: bool = False) -> ToolCallResult:  # noqa: D401
+        """
+        Execute the API.  
+        Set `log=True` to record the call in the current ExecutionContext.
+        """
+        if call is None:
+            raise ValueError("call must not be None")
         if not self.is_initialized():
-            raise RuntimeError("Tool must be initialized.")
+            raise RuntimeError("Tool must be initialized before invocation.")
 
-        # Drop the “thought” argument before forwarding.
+        # Clone & sanitise arguments
         args: dict[str, Any] = dict(call.arguments)
-        args.pop("thought", None)
+        args.pop("thought", None)  # remove LLM’s thought if present
 
-        scenario_id = self.get_scenario_id()
+        lab_agent = self.get_lab_agent()
+        if lab_agent is None:
+            raise RuntimeError("Unable to locate LabAgent in call hierarchy.")
+
+        scenario_id = lab_agent.get_scenario_id()
+
         if log:
-            self.get_execution_context().log_api_call(scenario_id, self.id, args)
+            lab_agent.execution_context.log_api_call(  # type: ignore[arg-type]
+                scenario_id,
+                self.id,
+                args,
+            )
 
-        # Delegate to ScenarioComponent (simulation data source)
+        # Retrieve canned result
         result = ScenarioComponent.get_instance().get(scenario_id, self.id, args)
         return ToolCallResult.from_call(call, result)

@@ -1,17 +1,26 @@
+# orchestrator.py
+"""
+Python port of `com.infosys.small.pnbc.Orchestrator`.
+
+It specialises :class:`LabAgent` with a fixed set of tools and a predefined
+simulation context.
+"""
+
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import List
 
+from execution_context import ExecutionContext
 from lab_agent import LabAgent
 from peace import Peace
-from execution_context import ExecutionContext
-from steps import Step
 from json_schema import JsonSchema
+from steps import Step
+from tool import Tool
 
-# --------------------------------------------------------------------------- #
-# Logging configuration (equivalente al Java SimpleLogger)
-# --------------------------------------------------------------------------- #
+##### --------------------------------------------------------------------------- #
+##### Logging configuration (equivalent to Java SimpleLogger)
+##### --------------------------------------------------------------------------- #
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
@@ -21,79 +30,107 @@ logger = logging.getLogger(__name__)
 
 class Orchestrator(LabAgent):
     """
-    Python port of the Java `Orchestrator` class.
-
-    It inherits from `LabAgent` and initialises itself with a single `Peace`
-    tool.  A rich execution context is set in the constructor.
+    First-ever built process orchestrator.
     """
 
-    # ------------------------------ init --------------------------------- #
+    # --------------------------------------------------------------------- #
+    # Construction
+    # --------------------------------------------------------------------- #
     def __init__(self) -> None:
-        # initialise superclass ------------------------------------------------
+        tools: List[Tool] = [
+            Peace(),
+            # CustomerPortal(),
+            # OperatorCommunicationTool(),
+            # Capt(),
+            # FileDownloadTool(),
+            # UpdatePoATool(),
+            # InspectBillTool(),
+        ]
+
         super().__init__(
             id_="ORCHESTRATOR",
             description="I am the first ever built process orchestrator",
-            tools=[Peace()],
+            tools=tools,
             check_last_step=True,
         )
 
-        # build contextual knowledge ------------------------------------------
+        # ---------- domain context fed to the underlying LLM --------------
         self.context = (
-            "  * Documents you handle are in Danish; you may need to translate tool "
-            'parameters. For instance, "Customer Number" might appear as '
+            "  * Documents you handle are in Danish, this means sometime you have to translate "
+            'tool calls parameters. For example, "Customer Number" is sometimes indicated as '
             '"afdøde CPR" or "CPR" in documents.\n'
-            "  * Probate Certificate identifies heirs for an estate (often called "
-            '"SKS").\n'
-            "  * Power of Attorney (PoA) defines a person's legal rights over the "
-            "estate’s assets.\n"
-            "  * A Proforma Document lists the cash on estate accounts at the date "
-            "of death.\n"
-            "  * A Probate Court (Skifteretten) Notification Letter opens an estate; "
-            "it is **NOT** the same as SKS, though it may mention that SKS was "
+            "  * Probate Certificate is a document that lists heirs for one estate; it is sometime "
+            'indicated as "SKS".\n'
+            "  * Power of Attorney document (PoA) is a document that define people's legal rights "
+            "over the estate's asset. It is sometime indicated as \"PoA\".\n"
+            "  * Proforma Document is a document containing the amount of cash available on "
+            "estate's account at the time of their death.\n"
+            "  * Probate Court (Skifteretten) Notification Letter is an official letter from "
+            "Skifteretten informing the heirs about the opening of an estate after a person’s "
+            "death; this is **NOT** same as SKS, even it might notify heirs that SKS has been "
             "issued.\n"
-            "  * Timestamps **must** use the format \"mm/dd/yyyy, hh:mm AM/PM\" "
-            "(e.g. \"4/16/2025, 2:31 PM\").\n"
-            "  * Amounts **must** use the format NNN,NNN.NN CCC "
-            "(e.g. \"2,454.33 DKK\").\n"
-            "  * Person data JSON schema:\n"
+            '  * To indicate time stamps, always use "mm/dd/yyyy, hh:mm AM/PM" format '
+            '(e.g. "4/16/2025, 2:31 PM").\n'
+            '  * For amounts, always use the format NNN,NNN.NN CCC (e.g. "2,454.33 DKK").\n'
+            "  * Persons data are described by this JSON schema: "
             f"{JsonSchema.get_json_schema(Peace.Person)}\n"
-            "  * Persons are uniquely identified by **Customer Number** (also known "
-            "as CPR). Always include Customer Number when a tool acts on a person; "
-            "never identify by name or email only.\n"
-            '  * Tasks are uniquely identified by "Customer Number" + '
-            '"Time Created". Always provide both when a tool acts on a task.\n'
-            '  * Payment tasks have Step Name="Handle Account 1".\n'
-            "  * Use Operator ID==42 when identifying yourself as an operator.\n"
-            '  * Accounts: personal (JO=="N") or half-joint (JO=="J").\n'
-            "  * Each tool exposes limited capabilities—call only the appropriate "
-            "tool for the data you need.\n"
+            "  * Persons are uniquely identified by their Customer Number, sometimes also referred "
+            "as CPR. **STRICTLY** always communicate Customer Number to any tool that needs to act "
+            "on persons/clients; indicate it as Customer Number and not CPR. Never identify a "
+            "person only providing their name or email.\n"
+            '  * Tasks are uniquely identified by the combination of their "Customer Number" and '
+            '"Time Created" fields. **STRICTLY** always provide these fields if a tool needs to act '
+            "on a specific task\n"
+            '  * Payment tasks are identified by having Step Name="Handle Account 1".\n'
+            "  * When you need to identify yourself as an operator (e.g. when managing tasks), use "
+            "Operator ID == 42.\n"
+            '  * Accounts can be personal or half-joint. This is indicated by their "JO" field: '
+            "JO==N for Personal Accounts and JO==J for Half-Joint accounts.\n"
+            "  * Be mindful when calling tools, since each tool has access only to specific "
+            "capabilities and data.\n"
         )
 
-    # ------------------------------ API ---------------------------------- #
-    def execute(
-        self,
-        ctx: ExecutionContext,
-        command: Optional[str] = None,
-    ) -> Step:
+    # --------------------------------------------------------------------- #
+    # Default process execution
+    # --------------------------------------------------------------------- #
+    def execute(self, ctx: ExecutionContext) -> Step:  # noqa: D401
         """
-        Run the default process unless *command* is provided.
-
-        Parameters
-        ----------
-        ctx : ExecutionContext
-            The simulation context in which to operate.
-        command : str | None
-            Optional custom command (overrides the default pseudo-code).
+        Run the default process inside *ctx*.
         """
         if ctx is None:
             raise ValueError("ctx must not be None")
 
-        default_command = (
+        process_description = (
             "Run the below process described in pseudo-code inside <process> tag.\n\n"
             "<process>\n"
-            "Check for any unassigned payment task (Step Name=\"Handle Account 1\") "
-            "and assign the oldest created payment task to you.\n"
-            "</process>"
+            'Check for any unassigned payment task (Step Name="Handle Account 1") and assign '
+            "the oldest created payment task to you.\n\n"
+            'Assign to you any unassigned payment task (Step Name="Handle Account 1") for the '
+            "same estate (Client Number).</process>"
         )
 
-        return super().execute(ctx, command or default_command)
+        return super().execute(ctx, process_description)
+
+    # --------------------------------------------------------------------- #
+    # Entry-point for manual testing (mirrors Java `main`)
+    # --------------------------------------------------------------------- #
+    @staticmethod
+    def _demo() -> None:  # pragma: no cover
+        class _Db(ExecutionContext.DbConnector):
+            def add_step(self, run_id: str, step: Step) -> None:
+                pass  # no-op for demo
+
+        ctx = ExecutionContext(_Db(), "scenario-01", "_run_XXX")
+
+        # Touch Peace so it initialises its description (behavioural parity)
+        Peace().get_description()  # type: ignore[attr-defined]
+
+        orchestrator = Orchestrator()
+        try:
+            orchestrator.execute(ctx)
+        finally:
+            orchestrator.close()
+
+
+if __name__ == "__main__":  # pragma: no cover
+    Orchestrator._demo()
