@@ -1,0 +1,216 @@
+[
+   {
+      	"id":"scenario-02b",
+      	"description":"SKS Received, no funereal bill.",
+		"success_criteria":"* Task with Time Created \"4/16/2025, 2:31 PM\" and Customer Number \"0605040203\" has been assigned to operator ID == 42.\n* Task with Time Created \"4/16/2025, 3:00 PM\" and Customer Number \"0605040203\" has been assigned to operator ID == 42.\n* SKS and Power of Attorney documents are uploaded through CAPT.\n* The diary has been updated with an entry with category=\"SKS registered\".\n* The diary has been updated with an entry with category=\"PoA uploaded in CF\".\n* Related person data for Lars Tai have been updated with Address=\"Jensensvej 123, 1234 København\", Relation to Estate=\"Power of Attorney\", Power of Attorney Type=\"Alone\", and Identification Completed=\"OK – Customer\"\n* Related person data for Bob Tai have been updated with Relation to Estate=\"Heir\".\n* Accounts in Customer Portal for Customer Number 0605040203 have been unblocked.\n* The diary has been updated with an entry with category=\"Created netbank to CPR\" mentioning Customer Number 0605040203.\n* Payment instructions have been issued to operations officer to pay a bill for 1.500,00 DKK to account number 0216-4069134262.\n* The diary has been updated with an entry with category=\"Paid bill\" mentioning a bill payment for 1.500 DKK.\n* No other payments except the above one have been issued or attempted.\n* An email has been sent to recipient/customer number 4040404040, confirming a bill for 1.500,00 DKK has been paid, and that access to online bank has been granted.\n* The diary has been updated with an entry with category=\"Info email sent\" being sent and signed with the Operator ID.\n* No other emails have been sent.\n* Both tasks assigned to Operator ID==42 have been closed in PEACE.",
+		"tool_calls": [
+         {
+            "tool_id":"getUnassignedTasks",
+            "input":{
+               
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"[{\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:27 PM\", \"Time Created\": \"4/16/2025, 2:31 PM\", \"Customer Number\": \"0605040203\", \"Customer Name\": \"Tai Ella\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:26 PM\", \"Time Created\": \"4/16/2025, 3:26 PM\", \"Customer Number\": \"111444445\", \"Customer Name\": \"Tai Tonny Lewis\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:23 PM\", \"Time Created\": \"4/16/2025, 3:23 PM\", \"Customer Number\": \"1187911145\", \"Customer Name\": \"Tai Liam Ray\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:06 PM\", \"Time Created\": \"4/16/2025, 3:06 PM\", \"Customer Number\": \"0557911145\", \"Customer Name\": \"Tai Ava Kim\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:04 PM\", \"Time Created\": \"4/16/2025, 3:04 PM\", \"Customer Number\": \"0557922225\", \"Customer Name\": \"Tai Noah Wu\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:01 PM\", \"Time Created\": \"4/16/2025, 3:01 PM\", \"Customer Number\": \"0433565669\", \"Customer Name\": \"Tai Mia Roe\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:00 PM\", \"Time Created\": \"4/16/2025, 3:00 PM\", \"Customer Number\": \"0605040203\", \"Customer Name\": \"Tai Ella Tai\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:36 PM\", \"Time Created\": \"4/16/2025, 2:36 PM\", \"Customer Number\": \"2222222222\", \"Customer Name\": \"Tai Ethan Poe\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:36 PM\", \"Time Created\": \"4/16/2025, 2:36 PM\", \"Customer Number\": \"2222222589\", \"Customer Name\": \"Tai Jack Lin\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:34 PM\", \"Time Created\": \"4/16/2025, 2:34 PM\", \"Customer Number\": \"3332222222\", \"Customer Name\": \"Tai Lily Sue\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:33 PM\", \"Time Created\": \"4/16/2025, 2:33 PM\", \"Customer Number\": \"2536458577\", \"Customer Name\": \"Tai Zoe Kai\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:33 PM\", \"Time Created\": \"4/16/2025, 2:33 PM\", \"Customer Number\": \"6666666666\", \"Customer Name\": \"Tai Ryan Lee\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:31 PM\", \"Time Created\": \"4/16/2025, 2:32 PM\", \"Customer Number\": \"5696365566\", \"Customer Name\": \"OWEN MAX\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:31 PM\", \"Time Created\": \"4/16/2025, 2:32 PM\", \"Customer Number\": \"7777777777\", \"Customer Name\": \"CHLOE NG\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:31 PM\", \"Time Created\": \"4/16/2025, 2:32 PM\", \"Customer Number\": \"8855225588\", \"Customer Name\": \"DYLAN FAY\"}]"
+               }
+            ]
+         },
+         {
+            "tool_id":"getTaskContent",
+            "input":{
+               "timeCreated":"4/16/2025, 2:31 PM",
+               "customerNumber":"0605040203"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"*****************   INFORMATIONER OM AFDØDE *****************;\nAFDØDES FORNAVN OG EVT. MELLEMNAVN:      Ella\nAFDØDES EFTERNAVN:     Tai\nAFDØDES CPR-NR:     060504023\n\n*****************   DINE OPLYSNINGER *****************;\nVælg her, om du henvender dig som arving/andre eller advokat/bobestyrer: Arving / Andre\nEr du ægtefælle?: Nej\nDIT FORNAVN OG EVT. MELLEMNAVN:     Lars\nDIT EFTERNAVN:     Tai\nDIT CPR-NR.:     4040404040\nDIN E-MAIL:     lion@midlle.dk\nDIT TELEFON NR:     57689900\n\n*****************   SKIFTERETSATTEST *****************;\nEr Skifteretsattest udstedt af Skifteretten?: Ja\nSkifteform: Privat Skifte\n\n*****************   KONTI OG BETALINGER *****************;\n                        Betal regning\nBetal regning: Ja\nHvis du ønsker at betale en regning fra en bestemt konto, indtast da kontonummer, eller lad feltet stå tomt::\n\n*****************   INVESTERINGER *****************;\n\n*****************   PENSION *****************;\nFORESPØRGSLER OM PENSION:\n\n*****************   KRAV *****************;\n\n*****************   ANDRE FORSPØRGSLER *****************;\nANDRE FORSPØRGSLER:\nJeg bekræfter, at jeg har indsendt den korrekte ordre ovenfor og har vedhæftet de nødvendige dokumenter til udførelse.: Ja\n\nAttachments: \"image.jpg\"."
+               }
+            ]
+         },
+         {
+            "tool_id":"getFileContent",
+            "input":{
+               "fileName":"image.jpg"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"# Retten i Holbæk\n\n---\n\nLars Tai  \nJensensvej 123  \n1234 København  \n\n<div align=\"right\">\n\nRETTEN I HOLBÆK  \nDANMARKS DOMSTOLE  \n\nSkifteretten  \nDomhustræde 1  \n4300 Holbæk  \nÅbent 8.30 - 15.00  \nBank 0216-4069134262  \nTlf.nr. 59 49 07 11  \nskifte.hbk@domstol.dk  \nwww.domstol.dk/holbaek  \nSE-nr. 29 20 69 10  \n\nSagsnr. SKS 446-777/2025  \n</div>\n\n---\n\n## Boet efter **Ella Tai**  \n<div align=\"right\">den 15. april 2025</div>\n\n---\n\nSkifteretten sender vedhæftet skifteretsattest, der skal bruges som dokumentation for rådighed over boet.\n\nHvis du ikke tidligere har betalt retsafgiften på 1.500 kr., skal denne betales senest 14 dage fra i dag. Beløbet overføres til rettens kontonummer med angivelse af SKS 446-777/2025.\n\n---\n\n## **Du får indenfor 24 timer adgang til boet på Skifteportalen.**  \nDu kan tilgå Skifteportalen på [www.minskiftesag.dk](http://www.minskiftesag.dk).\n\nPå Skifteportalen kan du få et overblik over de krav og tilgodehavender, der er registreret på boet. Der kan løbende blive registreret flere krav m.v., og du forventes derfor at holde dig orienteret frem til proklamafristens udløb. Efter proklamafristens udløb vil du modtage en meddelelse via digital post, når der er nyt på Skifteportalen.\n\nSom boets kontaktperson er det din opgave at sikre den nødvendige kontakt til de kreditorer, debitorer m.v., som laver en registrering på Skifteportalen.\n\nHvis du ikke har mulighed for at tilgå Skifteportalen, skal du skrive eller ringe til skifteretten for at få en oversigt over det, der er registreret på Skifteportalen. Det er dit eget ansvar at få denne oversigt tilsendt, både ved boets udlevering samt ved proklamafristens udløb.\n\nArvingerne kan bruge afdødes NemKonto som bo konto. Derved sikrer arvingerne sig, at udbetalinger fra det offentlige kommer direkte ind på kontoen. Kontakt afdødes bank for at få genåbnet afdødes NemKonto. Arvingerne kan også oprette en ny bankkonto, men denne kan ikke registreres som NemKonto.\n\nSkifteretten indrykker annonce i Statstidende (proklama). Statstidende sender regningen til dig.\n\nDet bemærkes, at åbningsstatus skal være modtaget i skifteretten senest 6 måneder fra dødsdagen og tidligst efter proklamafristens udløb i Statstidende.\n\nMed venlig hilsen\n\nRose Johnson  \nkontorfuldmægtig\n"
+               }
+            ]
+         },
+         {
+            "tool_id":"getTaskContent",
+            "input":{
+               "timeCreated":"4/16/2025, 3:00 PM",
+               "customerNumber":"0605040203"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"******************  INFORMATIONER OM AFDØDE  ******************\nAFDØDES FORNAVN OG EVT. MELLEMNAVN:   Ella\nAFDØDES EFTERNAVN:   Tai\nAFDØDES CPR-NR:   0605040203\n\n******************  DINE OPLYSNINGER  ******************\nVælg her, om du henvender dig som arving/andre eller advokat/bobestyrer: Arving / Andre\nEr du ægtefælle?: Nej\nDIT FORNAVN OG EVT. MELLEMNAVN:   Lars\nDIT EFTERNAVN:   Tai\nDIT CPR-NR.:   4040404040\nDIN E-MAIL:   lion@midlle.dk\nDIT TELEFON NR:   57689900\n\n******************  SKIFTERETSATTEST  ******************\nEr Skifteretsattest udstedt af Skifteretten?: Ja\nSkifteform: Privat Skifte\n\n******************  KONTI OG BETALINGER  ******************\n******************  Opret adgang til boets netbank  ******************\nHusk at vælge de tjenester, du har brug for:: Ja\nJeg har Danske Netbank og ønsker adgang til boets konti: Ja\n\n******************  INVESTERINGER  ******************\n\n******************  PENSION  ******************\nFORESPØRGSLER OM PENSION:\n\n******************  KRAV  ******************\n\n******************  ANDRE FORSPØRGSLER  ******************\nANDRE FORSPØRGSLER\nJeg bekræfter, at jeg har indsendt den korrekte ordre ovenfor og har vedhæftet de nødvendige dokumenter til udførelse.: Ja\n\nAttachments: \"Doc01.pdf\", \"Doc02.pdf\"."
+               }
+            ]
+         },
+         {
+            "tool_id":"getFileContent",
+            "input":{
+               "fileName":"Doc01.pdf"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"Sagsnr.  SKS 446-777/2025\n15. april 2025\n\nSkifteretsattest om privat skifte\nDet attesteres, at boet efter\n\nNavn                  Ella Tai\n\nAdresse               Bakkegade 45, 5678 Varhus\n\nCpr. nummer           0605040203            Død den           28. februar 2025\n\nden 15-04-2025 er overtaget til privat skifte af nedenævnte arvinger\n\nNavn og adresse\n\nLars Tai, Jensensvej 123, 1234 København\nBob Tai, Jensensvej 321, 12 København\n\nDet private skifte omfatter tillige boet efter tidligere afdøde ægtefælle\n\nNavn                    Bree Taigan\n\nFødt den   20. februar 1925      Død den   29. december 2011\n\nOak Flower\nkontorfuldmægtig\n\nSK25A"
+               }
+            ]
+         },
+         {
+            "tool_id":"getFileContent",
+            "input":{
+               "fileName":"Doc02.pdf"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"Skiftefuldmagt\nSagsnr.  SKS 446-777/2025\n\nUnderskrevne arving\nNavn    Bob Tai\nCPR-nummer 5555555555\nAdresse Jensensvej 321, 12 København\n\ngiver hermed fuldmagt til\nNavn    Lars Tai\nAdresse Jensensvej 123, 1234 København\nTlf.nr. 000088887\nE-mail  lion@midlle.dk\n\ntil i enhver henseende at repræsentere mig i boet efter\nNavn    Ella Tai\nAdresse Bakkegade 45, 5678 Varhus\nCPR-nr./fødselsdag 0605040203\nDød den 28. februar 2025\nog længstlevende/tidligere ægtefælle\nNavn    Bree Taigan\nCPR-nr./fødselsdag 998898876\nDød den 29. december 2011\n\nFuldmagten betyder, at alt, hvad hun/han beslutter eller erklærer for mig, skal have samme virkning, som var det besluttet eller erklæret af mig selv, medmindre (sæt x i rubrikken Nej for det eller de punkter, som fuldmagten eventuelt ikke skal gælde):\n1) Underskrive og godkende opgørelse over boets aktiver og passiver pr. dødsdagen\nJa\n2) træffe bestemmelse om salg, pantsætning eller udlodning til arvinger af boets ejendele\nJa\n3) tinglyse skøder og pantebreve m.v. vedrørende boets aktiver og passiver samt udstede tinglysningsfuldmagt til en anden fysisk eller juridisk person\nJa\n4) underskrive og godkende boopgørelsen\nJa\n5) videregive fuldmagten til en anden person\nJa\n\nSted og dato: 4/3-25 HCL\n\nArvingens underskrift (skal udfyldes skriftligt)\nBob Tai\n\nHvis fuldmagten skal bruges til tinglysning, skal to personer tillige skrive under til vitterlighed. Hvis fuldmagten oprettes i udlandet, skal to personer, der forstår dansk, eller en dansk repræsentation, tillige underskrive til vitterlighed.\n\nVi bekræfter, at underskriften er ægte, dateringen rigtig, og at underskriveren er myndig:\n\nNavn _________________________\nCPR-nummer ___________________\nStilling _______________________\nFuldstændig adresse:\nGadenavn _____________________\nPostnr. og by _________________\nDato _________________________\nUnderskrift (skal udfyldes skriftligt) _____________\n\nNavn _________________________\nCPR-nummer ___________________\nStilling _______________________\nFuldstændig adresse:\nGadenavn _____________________\nPostnr. og by _________________\nDato _________________________\n"
+               }
+            ]
+         },
+         {
+            "tool_id":"getRelatedPersons",
+            "input":{
+               "customerNumber":"0605040203"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"[{\"Customer Number\": \"4040404040\", \"Relation To Estate\": \"other\", \"Name\": \"Lars Tai\", \"Identification Completed\": \"None\", \"Power Of Attorney Type\": \"none\", \"Address\": \"JENSENSVEJ 6, 1234 KØBENHAVN, Denmark\", \"Email\": \"lion@midlle.dk\", \"Phone Number\": \"57689900\"}, {\"Customer Number\": \"5555555555\", \"Relation To Estate\": \"other\", \"Name\": \"Bob Tai\", \"Identification Completed\": \"None\", \"Power Of Attorney Type\": \"none\", \"Address\": \"JENSENSVEJ 321, 12 KØBENHAVN, Denmark\", \"Email\": \"\", \"Phone Number\": \"67676767\"}]"
+               }
+            ]
+         },
+		 {
+		    "tool_id":"getAccounts",
+		    "input":{
+		       "customerNumber":"4040404040"
+		    },
+		    "output":[
+		       {
+		          "type":"text",
+		          "value":"Summary of accounts\n\n| Account number     | Currency | Product        | Card | JO | Balance        | Avail.bal.     |\n|--------------------|----------|---------------|------|----|----------------|----------------|\n| 3365 505050505     | DKK      | Danske Indlån |      | N  | 447.765,34     | 447.765,34     |\n| 8889 474747474     | DKK      | Mastercard    | MC   | N  | -2.050,40      | 47.949,60      |\n| 0000 555555555     | DKK      | Danske Konto  | MCD  | N  | 99.678,16      | 99.678,16      |\n| 4747 000000000     | DKK      | Danske Konto  |      | J  | 5.704,57       | 5.704,57       |\n| 5656 888888888     | DKK      | Danske Konto  |      | J  | 8.389,98       | 8.389,98       |"
+		       }
+		    ]
+		 },
+		 {
+		    "tool_id":"getAccounts",
+		    "input":{
+		       "customerNumber":"5555555555"
+		    },
+		    "output":[
+		       {
+		          "type":"text",
+		          "value":"No accounts exist for Customer Numer 5555555555"
+		       }
+		    ]
+		 },
+         {
+            "tool_id":"getAccounts",
+            "input":{
+               "customerNumber":"0605040203"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"Summary of accounts\n\n| Account number         | Currency | Product         | Card | JO | Balance      | Avail.bal.    |\n|-----------------------|----------|-----------------|------|----|--------------|---------------|\n| 4765345678       | DKK      | Budget Service  |      | N  | 2.067,09     | 2.067,09      |\n| 4565998863       | DKK      | Danske Indlån   |      | N  | 837.162,22   | 837.162,22    |\n| 4688009800       | DKK      | Danske Konto    |      | N  | 10.316,00    | 10.316,00     |\n"
+               }
+            ]
+         },
+         {
+            "tool_id":"getTransactions",
+            "input":{
+               "accountNumber":"4765345678"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"Enquiries - entries\n\nAccount *                : 4765345678  DK\nBooking date             : 28.02.2025 - 14.04.2025\nInterest value date      : /\nAmount                   : [ ] Booked [ ] Bulk\n\nInclude entries\n [ ] Future  [ ] Uncovered  [ ] Reservations\n\nMore search options\nReference number         :\nPayer identification     :\nEntry Text Filter        :\nCurrency code            : DKK\n               [o] Deposits   [o] Withdrawals   [o] Both   [ ] Balance History\n\nAccount type             : Budget Service\nAccount holder           : B/E ELLA TAI 0605040203 CPR DABA\nBal. last statement      : 2.067,09\nLast statement no.       : 108\nStatement date           : 31.03.2025\nBalance                  : 2.067,09\nCredit limit             : 0,00\nApproved excess          : 0,00\nAvailable balance        : 2.067,09\n\nBooking time             : 0000 / 2359\nShow results             : 500\n\n[Search]  [Clear]  [Add fee]  [Order statement]\n\nEntries found in DKK: 4    Collapse all    Export to Excel   Export to PDF\n\nPage: 1\n\n| Booking date | Interest value date | Entry text                      | Info | Amount    | Acc. balance | Payment type |\n|--------------|---------------------|---------------------------------|------|-----------|--------------|--------------|\n| 31.03.2025   | 01.04.2025          | Administration fee              |      | -45,00    | 2.067,09     | Booked       |\n| 12.03.2025   | 12.03.2025          | \"danmark\"                       | ✉    | 1.421,90  | 2.112,09     | Booked       |\n| 03.03.2025   | 03.03.2025          | Danmarks Naturfredningsf        |      | -150,00   | 690,19       | Booked       |\n| 28.02.2025   | 28.02.2025          | Transf. f   4688009800          |      | 300,00    | 840,19       | Booked       |\n"
+               }
+            ]
+         },
+         {
+            "tool_id":"getTransactions",
+            "input":{
+               "accountNumber":"4565998863"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"Enquiries - entries\n\nAccount *                : 4565998863  DK\nBooking date             : 28.02.2025 - 14.04.2025\nInterest value date      : /\nAmount                   : [ ] Booked [ ] Bulk\n\nInclude entries\n [ ] Future  [ ] Uncovered  [ ] Reservations\n\nMore search options\nReference number         :\nPayer identification     :\nEntry Text Filter        :\nCurrency code            : DKK\n               [o] Deposits   [o] Withdrawals   [o] Both   [ ] Balance History\n\nAccount type             : Danske Indlån\nAccount holder           : B/E ELLA TAI 0605040203 CPR DABA\nBal. last statement      : 837.162,22\nLast statement no.       : 007\nStatement date           : 31.03.2025\nBalance                  : 837.162,22\nCredit limit             : 0,00\nApproved excess          : 0,00\nAvailable balance        : 837.162,22\n\nBooking time             : 0000 / 2359\nShow results             : 500\n\n[Search]  [Clear]  [Add fee]  [Order statement]\n\nEntries found in\nDKK: 0\n"
+               }
+            ]
+         },
+         {
+            "tool_id":"getTransactions",
+            "input":{
+               "accountNumber":"4688009800"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"Enquiries - entries\n\nAccount *                : 4688009800  DK\nBooking date             : 28.02.2025 - 14.04.2025\nInterest value date      : /\nAmount                   : [x] Booked [ ] Bulk\n\nInclude entries\n [ ] Future  [ ] Uncovered  [ ] Reservations\n\nMore search options\nReference number         :\nPayer identification     :\nEntry Text Filter        :\nCurrency code            : DKK\n               [o] Deposits   [o] Withdrawals   [o] Both   [ ] Balance History\n\nAccount type             : Danske Konto\nAccount holder           : B/E ELLA TAI 0605040203 CPR DABA\nBal. last statement      : 36.371,00\nLast statement no.       : 278\nStatement date           : 31.03.2025\nBalance                  : 10.316,00\nCredit limit             : 0,00\nApproved excess          : 0,00\nAvailable balance        : 10.316,00\n\nBooking time             : 0000 / 2359\nShow results             : 500\n\n[Search]  [Clear]  [Add fee]  [Order statement]\n\nEntries found in DKK: 25    Collapse all    Export to Excel   Export to PDF\n\nPage: 1\n\n| Booking date | Interest value date | Entry text                        | Info | Amount    | Acc. balance | Payment type |\n|--------------|---------------------|-----------------------------------|------|-----------|--------------|--------------|\n| 14.04.2025   | 14.04.2025          | Total fees                        | ✉    | -100,00   | 11.866,00    | Booked       |\n| 13.04.2025   | 13.04.2025          | Flowers                           |      | -300,00   | 11.966,00    | Booked       |\n| 13.04.2025   | 13.04.2025          | Flowers                           |      | -150,00   | 17.426,00    | Booked       |\n| 31.03.2025   | 01.04.2025          | Total fees                        |      | -60,00    | 36.371,00    | Booked       |\n| 31.03.2025   | 31.03.2025          | Indbetalingskort                  |      | -50,00    | 36.431,00    | Booked       |\n| 31.03.2025   | 31.03.2025          | Holbæk Kirkegårde                 |      | -671,36   | 36.481,00    | Booked       |\n| 31.03.2025   | 31.03.2025          | Indbetalingskort                  |      | -50,00    | 37.152,36    | Booked       |\n| 31.03.2025   | 31.03.2025          | Gias - Viborg                     |      | -6.717,80 | 37.202,36    | Booked       |\n| 24.03.2025   | 24.03.2025          | Indbetalingskort                  |      | -60,00    | 43.920,16    | Booked       |\n| 24.03.2025   | 24.03.2025          | Holbæk Kirkegårde                 |      | -900,00   | 43.970,16    | Booked       |\n| 24.03.2025   | 24.03.2025          | Fee, transf other cust.            |      | -2.769,00 | 44.870,16    | Booked       |\n| 21.03.2025   | 21.03.2025          | Udlæg 4545-0000000098             |      | -150,00   | 47.689,16    | Booked       |\n"
+               }
+            ]
+         },
+		 {
+		    "tool_id":"getSKS",
+		    "input":{
+		       "customerNumber":"0605040203"
+		    },
+		    "output":[
+		       {
+		          "type":"text",
+		          "value":"No SKS was provided for customer number 0605040203."
+		       }
+		    ]
+		 },
+		 {
+		    "tool_id":"getPoA",
+		    "input":{
+		       "customerNumber":"0605040203"
+		    },
+		    "output":[
+		       {
+		          "type":"text",
+		          "value":"No Power of Attorney document was provided for customer number 0605040203."
+		       }
+		    ]
+		 },
+         {
+            "tool_id":"getProformaDocument",
+            "input":{
+               "customerNumber":"0605040203"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"No Proforma Document was provided for customer number 0605040203."
+               }
+            ]
+         },
+         {
+            "tool_id":"getDiaryEntries",
+            "input":{
+               "timeCreated":"4/16/2025, 2:31 PM",
+               "customerNumber":"0605040203"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"No diary entries available (the diary is empty)."
+               }
+            ]
+         }
+      ]
+   }
+]
