@@ -1,23 +1,19 @@
 # executor_module.py
 from __future__ import annotations
 
-import logging
 import json
-from typing import Any, Dict, List, Mapping, Sequence, TYPE_CHECKING
+import logging
+from typing import List, Mapping, Sequence, TYPE_CHECKING
 
 from agent import Agent
-from chat_types import ChatCompletion, ChatMessage, ToolCall, ToolCallResult, TextPart
+from chat_types import ChatCompletion, ToolCall, ToolCallResult
 from json_schema import JsonSchema
 from steps import Step, ToolCallStep, Status
 from tool import Tool
 
-if TYPE_CHECKING:  # circular-import guards
+if TYPE_CHECKING:
     from react_agent import ReactAgent
-    from critic_module import CriticModule
 
-# --------------------------------------------------------------------------- #
-# Logging configuration (equivalent to Java SimpleLogger)
-# --------------------------------------------------------------------------- #
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
@@ -25,16 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# --------------------------------------------------------------------------- #
-# ExecutorModule ­– executes the user command through reasoning & tools
-# --------------------------------------------------------------------------- #
 class ExecutorModule(Agent):
-    """
-    Executor component of a :class:`react_agent.ReactAgent`.
-
-    It plans and carries out the steps needed to fulfil a user command,
-    leveraging the tools provided by the parent *ReactAgent*.
-    """
 
     # ------------------------------------------------------------------ #
     # Constants
@@ -81,9 +68,6 @@ class ExecutorModule(Agent):
         "{{examples}}\n"
     )
 
-    # ------------------------------------------------------------------ #
-    # Construction
-    # ------------------------------------------------------------------ #
     def __init__(
         self,
         agent: "ReactAgent",
@@ -91,13 +75,6 @@ class ExecutorModule(Agent):
         check_last_step: bool,
         model: str,
     ) -> None:
-        if agent is None:
-            raise ValueError("agent must not be None")
-        if tools is None:
-            raise ValueError("tools must not be None")
-        if model is None:
-            raise ValueError("model must not be None")
-
         super().__init__(
             id_=f"{agent.id}-executor",
             description=f"Executor module for {agent.id} agent",
@@ -106,66 +83,44 @@ class ExecutorModule(Agent):
 
         self._agent: ReactAgent = agent
         self._check_last_step: bool = bool(check_last_step)
-
-        # Runtime state
         self._command: str | None = None
-        self._steps: List[Step] = []
 
-        # Model configuration
         self.temperature = 0.0
         self.model = model
         self.set_response_format(Step)
 
-    # ----------------------------- props ------------------------------- #
+    # ------------------------------------------------------------------ #
+    # convenience wrappers (delegate to ReactAgent)
+    # ------------------------------------------------------------------ #
     @property
-    def agent(self) -> "ReactAgent":  # noqa: D401
-        return self._agent
-
-    @property
-    def check_last_step(self) -> bool:  # noqa: D401
-        return self._check_last_step
-
-    @property
-    def command(self) -> str | None:  # noqa: D401
+    def command(self) -> str | None:
         return self._command
 
-    # Steps list (read-only) ------------------------------------------- #
-    @property
-    def steps(self) -> List[Step]:  # noqa: D401
-        return self._steps
+    def _add_step(self, step: Step) -> None:
+        self._agent.add_step(step)
 
-    # Convenience ------------------------------------------------------- #
-    def get_last_step(self) -> Step | None:
-        return self._steps[-1] if self._steps else None
-
-    def add_step(self, step: Step) -> None:
-        self._steps.append(step)
-        # TODO: persist step to external storage if required
-        logger.info(JsonSchema.serialize(step))
+    def _last_step(self) -> Step | None:
+        return self._agent.get_last_step()
 
     # ------------------------------------------------------------------ #
-    # Public API
+    # main execution loop
     # ------------------------------------------------------------------ #
     def execute(self, command: str) -> Step:
-        """
-        Execute *command* and return the final :class:`steps.Step`.
-        """
         if command is None:
             raise ValueError("command must not be None")
 
         self._command = command
-        self._steps.clear()
+        self._agent.steps.clear()
 
-        # ---------------- build persona -------------------------------- #
+        # --- personality & first bookkeeping step -------------------- #
         slots: Mapping[str, str] = {
             "command": command,
             "id": self.id,
-            "context": self.agent.context,
-            "examples": self.agent.examples,
+            "context": self._agent.context,
+            "examples": self._agent.examples,
         }
         self.personality = Agent.fill_slots(self._PROMPT_TEMPLATE, slots)
 
-        # ---------------- first bookkeeping step ----------------------- #
         first_step = (
             Step.builder()
             .actor(self.id)
@@ -182,44 +137,42 @@ class ExecutorModule(Agent):
             .observation("Execution just started.")
             .build()
         )
-        self.add_step(first_step)
+        self._add_step(first_step)
 
-        # ---------------- execution loop ------------------------------- #
-        suggestion: str = (
+        suggestion = (
             "No suggestions. Proceed as you see best, using the tools at your disposal."
         )
-        instructions_tpl: str = "<steps>\n{{steps}}\n</steps>\n\nSuggestion: {{suggestion}}"
+        instructions_tpl = "<steps>\n{{steps}}\n</steps>\n\nSuggestion: {{suggestion}}"
 
+        # --------------------- loop ----------------------------------- #
         while (
-            len(self._steps) < self.MAX_STEPS
+            len(self._agent.steps) < self.MAX_STEPS
             and (
-                self.get_last_step() is None
-                or self.get_last_step().status is None
-                or self.get_last_step().status == Status.IN_PROGRESS
+                self._last_step() is None
+                or self._last_step().status is None
+                or self._last_step().status == Status.IN_PROGRESS
             )
         ):
-            # ---- prepare prompt -------------------------------------- #
             self.clear_conversation()
+
             steps_json = json.dumps(
                 [
                     s.model_dump(exclude={"action_steps"})
                     if isinstance(s, ToolCallStep)
                     else s.model_dump()
-                    for s in self._steps
+                    for s in self._agent.steps
                 ],
                 separators=(",", ":"),
             )
-            prompt_slots = {
-                **slots,
-                "steps": steps_json,
-                "suggestion": suggestion,
-            }
-            prompt = Agent.fill_slots(instructions_tpl, prompt_slots)
 
-            # ---- call the LLM ---------------------------------------- #
+            prompt = Agent.fill_slots(
+                instructions_tpl,
+                {"steps": steps_json, "suggestion": suggestion},
+            )
+
             try:
                 reply = self.chat(prompt)
-            except Exception as exc:  # LLM invocation failed
+            except Exception as exc:
                 error_step = (
                     ToolCallStep.builder()
                     .actor(self.id)
@@ -231,7 +184,7 @@ class ExecutorModule(Agent):
                     .observation(str(exc))
                     .build()
                 )
-                self.add_step(error_step)
+                self._add_step(error_step)
                 break
 
             if reply.finish_reason != ChatCompletion.FinishReason.COMPLETED:
@@ -246,16 +199,16 @@ class ExecutorModule(Agent):
                     .observation(f"Response finish reason: {reply.finish_reason}")
                     .build()
                 )
-                self.add_step(truncated_step)
+                self._add_step(truncated_step)
                 break
 
-            # ---- process LLM output ---------------------------------- #
-            if reply.message.has_tool_calls():  # the model invoked tools
+            # ------------------- handle model output ------------------ #
+            if reply.message.has_tool_calls():
                 with_error = False
                 for call in reply.message.get_tool_calls():
                     try:
                         result = call.execute()
-                    except Exception as exc:  # tool raised
+                    except Exception as exc:
                         result = ToolCallResult.from_exception(call, exc)
                         with_error = True
                     else:
@@ -264,7 +217,6 @@ class ExecutorModule(Agent):
                             and "error" in result.result.lower()
                         )
 
-                    # store step
                     args_no_thought = dict(call.arguments)
                     thought = args_no_thought.pop("thought", "No thought passed explicitly.")
                     call_step = (
@@ -275,31 +227,29 @@ class ExecutorModule(Agent):
                         .action(f'The tool "{call.tool.id}" has been called')
                         .action_input(JsonSchema.serialize(args_no_thought))
                         .action_steps(
-                            call.tool.agent.get_steps()  # type: ignore[attr-defined]
-                            if hasattr(call.tool, "agent") and isinstance(call.tool.agent, ReactAgent)
+                            call.tool.agent.steps  # type: ignore[attr-defined]
+                            if hasattr(call.tool, "agent")
                             else []
                         )
                         .observation(str(result.result))
                         .build()
                     )
-                    self.add_step(call_step)
+                    self._add_step(call_step)
 
-                    if len(self._steps) > self.MAX_STEPS:
+                    if len(self._agent.steps) > self.MAX_STEPS:
                         break
 
-                # ask critic if needed
-                if len(self._steps) <= self.MAX_STEPS:
-                    suggestion = (
-                        self.agent.reviewer.review_tool_call(self._steps)
-                        if with_error
-                        else "CONTINUE"
-                    )
-            else:  # plain text → expect JSON step
+                suggestion = (
+                    self._agent.reviewer.review_tool_call(self._agent.steps)
+                    if with_error
+                    else "CONTINUE"
+                )
+            else:
                 try:
                     step_obj = reply.get_object(Step)
-                    step_obj.actor = self.id  # enforce correct actor
-                    self.add_step(step_obj)
-                except Exception as exc:  # JSON parsing failed
+                    step_obj.actor = self.id
+                    self._add_step(step_obj)
+                except Exception as exc:
                     fallback = (
                         Step.builder()
                         .actor(self.id)
@@ -308,19 +258,19 @@ class ExecutorModule(Agent):
                         .observation(reply.get_text())
                         .build()
                     )
-                    self.add_step(fallback)
+                    self._add_step(fallback)
 
-                # decide next suggestion
-                if self.get_last_step().status == Status.IN_PROGRESS:
-                    suggestion = "**STRICTLY** proceed with next steps, by calling appropriate tools."
+                if self._last_step().status == Status.IN_PROGRESS:
+                    suggestion = (
+                        "**STRICTLY** proceed with next steps, by calling appropriate tools."
+                    )
                 elif self._check_last_step:
-                    suggestion = self.agent.reviewer.review_conclusions(self._steps)
+                    suggestion = self._agent.reviewer.review_conclusions(self._agent.steps)
                     if "continue" not in suggestion.lower():
-                        # force continuation
-                        self.get_last_step().status = Status.IN_PROGRESS
+                        self._last_step().status = Status.IN_PROGRESS
 
-        # ---------------- loop finished ------------------------------- #
-        if len(self._steps) >= self.MAX_STEPS:
+        # --------------------- overflow ------------------------------- #
+        if len(self._agent.steps) >= self.MAX_STEPS:
             overflow_step = (
                 Step.builder()
                 .actor(self.id)
@@ -332,7 +282,7 @@ class ExecutorModule(Agent):
                 .observation("I probably entered some kind of loop.")
                 .build()
             )
-            self.add_step(overflow_step)
+            self._add_step(overflow_step)
             logger.error("Maximum steps exceeded; aborting execution.")
 
-        return self.get_last_step()  # type: ignore[return-value]
+        return self._last_step()  # type: ignore[return-value]

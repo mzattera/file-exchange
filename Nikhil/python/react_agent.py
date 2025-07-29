@@ -7,17 +7,14 @@ from typing import List, Sequence, TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 from agent import Agent
+from json_schema import JsonSchema
+from steps import Step
 from tool import Tool
-from steps import Step  # Step and ToolCallStep are already provided
 
 if TYPE_CHECKING:  # avoid circular imports at runtime
     from executor_module import ExecutorModule
     from critic_module import CriticModule
 
-
-# --------------------------------------------------------------------------- #
-# Logging configuration (equivalent to Java SimpleLogger)
-# --------------------------------------------------------------------------- #
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
@@ -26,37 +23,17 @@ logger = logging.getLogger(__name__)
 
 
 class ReactAgent(Agent):
-    """
-    Python port of the Java `ReactAgent`.
-
-    A ReAct agent is composed of:
-      • an *executor* module in charge of reasoning/acting with tools;
-      • a *reviewer* (critic) module that audits the executor’s decisions.
-
-    Only the *executor* receives the tool list; the wrapper itself does **not**
-    expose tools directly.
-    """
-
     DEFAULT_MODEL: str = "gpt-4.1"
 
-    # --------------------------------------------------------------------- #
-    # Nested helper - Parameters (for tools that wrap the agent)
-    # --------------------------------------------------------------------- #
     class Parameters(BaseModel):
-        """
-        Base parameters for any tool available to a ReAct agent.
-
-        This mirrors the static `Parameters` class defined in the Java version.
-        """
-
         thought: str = Field(
             ...,
             description="Your reasoning about why this tool has been called.",
         )
 
-    # --------------------------------------------------------------------- #
-    # Construction
-    # --------------------------------------------------------------------- #
+    # ------------------------------------------------------------------ #
+    # construction
+    # ------------------------------------------------------------------ #
     def __init__(
         self,
         id_: str,
@@ -64,27 +41,18 @@ class ReactAgent(Agent):
         tools: Sequence[Tool],
         check_last_step: bool = True,
     ) -> None:
-        # --- null-checks (mirrors @NonNull) --------------------------------
-        if id_ is None:
-            raise ValueError("id_ must not be None")
-        if description is None:
-            raise ValueError("description must not be None")
-        if tools is None:
-            raise ValueError("tools must not be None")
-
-        # Initialise the outer Agent **without** tools (only executor uses them)
         super().__init__(id_=id_, description=description, tools=[])
 
-        # Model configuration mirrors the Java defaults
         self.model = self.DEFAULT_MODEL
         self.temperature = 0.0
 
-        # Additional context / few-shot examples the caller can set
         self._context: str = ""
         self._examples: str = ""
 
-        # Create the inner modules (executor & critic).  They are imported
-        # lazily to avoid circular-import issues.
+        # list of execution steps moved here
+        self._steps: List[Step] = []
+
+        # inner modules
         from executor_module import ExecutorModule  # local import
         from critic_module import CriticModule
 
@@ -100,10 +68,9 @@ class ReactAgent(Agent):
             model=self.DEFAULT_MODEL,
         )
 
-    # --------------------------------------------------------------------- #
-    # Public API mirroring Java implementation
-    # --------------------------------------------------------------------- #
-    # Properties ----------------------------------------------------------- #
+    # ------------------------------------------------------------------ #
+    # context & examples
+    # ------------------------------------------------------------------ #
     @property
     def context(self) -> str:
         return self._context
@@ -124,26 +91,39 @@ class ReactAgent(Agent):
             raise ValueError("examples must not be None")
         self._examples = value
 
-    # Accessors for inner modules (read-only) ------------------------------ #
+    # ------------------------------------------------------------------ #
+    # steps management (now owned by ReactAgent)
+    # ------------------------------------------------------------------ #
     @property
-    def executor(self):  # → ExecutorModule
+    def steps(self) -> List[Step]:
+        return self._steps
+
+    def get_last_step(self) -> Step | None:
+        return self._steps[-1] if self._steps else None
+
+    def add_step(self, step: Step) -> None:
+        self._steps.append(step)
+        try:
+            logger.info(JsonSchema.serialize(step))
+        except Exception:
+            logger.exception("Unable to serialise step for logging")
+
+    # ------------------------------------------------------------------ #
+    # inner modules (read-only)
+    # ------------------------------------------------------------------ #
+    @property
+    def executor(self):  # -> ExecutorModule
         return self._executor
 
     @property
-    def reviewer(self):  # → CriticModule
+    def reviewer(self):  # -> CriticModule
         return self._reviewer
 
-    # Delegated behaviour -------------------------------------------------- #
+    # ------------------------------------------------------------------ #
+    # delegate
+    # ------------------------------------------------------------------ #
     def execute(self, command: str) -> Step:
-        """
-        Execute *command* through the underlying executor module and
-        return the final `Step`.
-        """
         if command is None:
             raise ValueError("command must not be None")
         logger.info("Executing command: %s", command)
         return self._executor.execute(command)
-
-    def get_steps(self) -> List[Step]:
-        """Expose the list of execution steps gathered by the executor."""
-        return self._executor.steps
