@@ -33,29 +33,51 @@ public class UpdatePoATool extends LabAgent {
 	}
 
 	// I want to force specific processing, not generic commands
-	private static final String COMMAND = "Retrieve Probate Certificate (SKS) and Power of Attorney (PoA) documents for estate with Customer Number=\"{{estate}}\", if available.\n" //
-			+ "IF none of the SKS or PoA are provided, THEN end execution.\n"
-			+ "Meticulously compare all information available about the persons related to the estate with corresponding data provided in both SKS or PoA documents "
-			+ "(e.g. check whether email addresses in PoA or SKS is different from that in our systems); "
-			+ "in this step, **STRICTLY** ignore \"Power Of Attorney Type\" and \"Identification Completed\" fields but be very mindful with other fields, "
-			+ "including relation to estate if different than \"Other\" (e.g. if you can infer from SKS or PoA a person is now \"Heir\"). " //
-			+ "IF AND ONLY IF you find any data that is missing or that needs to be updated (considering above exceptions), THEN update the record for the related person, "
-			+ "ELSE do not make any attempt to write, confirm, or update the person's data.\n" //
-			+ "\n" //
+//	private static final String COMMAND = "Retrieve Probate Certificate (SKS) and Power of Attorney (PoA) documents for estate with Customer Number=\"{{estate}}\", if available.\n" //
+//			+ "IF none of the SKS or PoA are provided, THEN end execution.\n"
+//			+ "Meticulously compare all information available about the persons related to the estate with corresponding data provided in both SKS or PoA documents "
+//			+ "(e.g. check whether email addresses in PoA or SKS is different from that in our systems); "
+//			+ "in this step, **STRICTLY** ignore \"Power Of Attorney Type\" and \"Identification Completed\" fields but be very mindful with other fields, "
+//			+ "including relation to estate if different than \"Other\" (e.g. if you can infer from SKS or PoA a person is now \"Heir\"). " //
+//			+ "IF AND ONLY IF you find any data that is missing or that needs to be updated (considering above exceptions), THEN update the record for the related person, "
+//			+ "ELSE do not make any attempt to write, confirm, or update the person's data.\n" //
+//			+ "\n" //
+//
+//			+ "IF PoA is available, THEN {\n"
+//			+ "	FOR EACH person who (has received some power of attorney in PoA other than \"None\") AND (hasn't only granted power of attorney to somebody in PoA) {\n"
+//			+ "		IF the person has any account in the bank THEN {\n" //
+//			+ "			Update person's \"Power Of Attorney Type\" and \"Relation To Estate\" accordingly to PoA and set \"Identification Completed\"=\"OK - Client\".\n" //
+//			+ "			Unblock accounts for the estate.\n" //
+//			+ "			In your output, notify the user that accounts for estate have been unblocked; provide estate's Customer Number.\n" //
+////			+ "			Create an entry in the task diary with category \"Created netbank to CPR\" mentioning that accounts for given estate have been unblocked; provide the estate's Customer Number.\n" //
+//			+ "		}\n" //
+//			+ "		IF the person does NOT have any account in the bank THEN {\n" //
+//			+ "			Communicate to the Operations Officer that that person cannot be identified; clearly specify the power of attorney type they received. End the process execution here.\n" //
+//			+ "		}\n" //
+//			+ "	}\n" // For each person
+//			+ "}\n"; // IF PoA was provided
 
-			+ "IF PoA is available, THEN {\n"
-			+ "	FOR EACH person who (has received some power of attorney in PoA other than \"None\") AND (hasn't only granted power of attorney to somebody in PoA) {\n"
-			+ "		IF the person has any account in the bank THEN {\n" //
-			+ "			Update person's \"Power Of Attorney Type\" and \"Relation To Estate\" accordingly to PoA and set \"Identification Completed\"=\"OK - Client\".\n" //
-			+ "			Unblock accounts for the estate.\n" //
-			+ "			In your output, notify the user that accounts for estate have been unblocked; provide estate's Customer Number.\n" //
-//			+ "			Create an entry in the task diary with category \"Created netbank to CPR\" mentioning that accounts for given estate have been unblocked; provide the estate's Customer Number.\n" //
-			+ "		}\n" //
-			+ "		IF the person does NOT have any account in the bank THEN {\n" //
-			+ "			Communicate to the Operations Officer that that person cannot be identified; clearly specify the power of attorney type they received. End the process execution here.\n" //
-			+ "		}\n" //
-			+ "	}\n" // For each person
-			+ "}\n"; // IF PoA was provided
+	private static final String COMMAND = "Retrieve Probate Certificate (SKS) and Power of Attorney (PoA) documents for estate with Customer Number = \"{{estate}}\", if available.\n" //
+			+ "IF neither SKS nor PoA is provided, THEN end execution.\n" //
+			+ "\n" //
+			+ "Compare all available information in our systems about **every person related to the estate** (excluding the deceased) with the data in the SKS and PoA documents:\n" //
+			+ "- Ignore the \"Power Of Attorney Type\" and \"Identification Completed\" fields when comparing data.\n" //
+			+ "- Be attentive to other fields, especially \"Relation To Estate\" (unless it is \"Other\"), including address.\n" //
+			+ "- If and only if you find missing or outdated data (excluding the above exceptions), THEN update the record for that person (e.g., if the SKS lists a person as \"Heir\", set \"Relation To Estate\" to \"Heir\" for that person).\n" //
+			+ "\n" //
+			+ "IF a PoA is available, THEN:\n" //
+			+ "    1. For each person who is **explicitly GRANTED** (receives) any Power of Attorney in the PoA (PoA type other than \"None\"):\n" //
+			+ "        a. If this person has any account in the bank:\n" //
+			+ "            - Update their \"Relation to Estate\" = \"Power of Attorney\".\n"
+			+ "            - Update \"Power Of Attorney Type\" and \"Relation To Estate\" according to the PoA document.\n" //
+			+ "            - Set \"Identification Completed\" = \"OK - Client\".\n" //
+			+ "            - Unblock accounts for the estate.\n" //
+			+ "            - In your output, notify the user that accounts for the estate have been unblocked; provide estate's Customer Number.\n" //
+			+ "        b. If this person does NOT have any account in the bank:\n" //
+			+ "            - Inform the Operations Officer that this person cannot be identified; specify the Power of Attorney type they received.\n" //
+			+ "            - End the process here.\n" //
+			+ "    2. **You must NOT update \"Power Of Attorney Type\", \"Identification Completed\", or \"Relation To Estate\" for persons who only GRANT power to others and do NOT themselves receive any Power of Attorney.**\n" //
+			+ "";
 
 	public UpdatePoATool() {
 

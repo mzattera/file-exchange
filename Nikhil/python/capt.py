@@ -2,29 +2,31 @@
 """
 Python translation of `com.infosys.small.pnbc.Capt`.
 
-Wrapper for the CAPT tool (file upload). Mirrors the original Java behaviour
-while following Pythonic conventions and the project’s abstractions.
+This tool simulates a file upload endpoint (CAPT). It accepts a customer number,
+a unique file name, and a document type; it retrieves the file content from the
+scenario data and stores it in the execution context, logging the upload.
+
+Notes:
+* Comments are intentionally in English (per instructions).
+* Jackson annotations are mapped to Pydantic fields and JSON schema generation.
 """
 
 from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Mapping
 
 from pydantic import BaseModel, Field
 
 from chat_types import ToolCall, ToolCallResult
 from execution_context import ExecutionContext
+from peace import Peace
 from react_agent import ReactAgent
 from scenario_component import ScenarioComponent
-from tool import AbstractTool
-
-# External dependency already ported in the project; do not provide fallbacks.
-from peace import Peace  # type: ignore  # Assume available as instructed
+from api import Api
 
 # ------------------------------------------------------------------------------
-# Logging (equivalent to Java SimpleLogger)
+# Logging configuration (equivalent to Java SimpleLogger)
 # ------------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
@@ -33,34 +35,32 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class Capt(AbstractTool):
-    """
-    CAPT tool: allows uploading files like Proforma Document, Power of Attorney (PoA),
-    and Probate Certificate (SKS), making them available to other applications.
-
-    **STRICTLY** do not use this tool to check the type of a document.
-    """
-
+class Capt(Api):
     # ------------------------------------------------------------------ #
-    # Parameters (JSON-schema via Pydantic)
+    # Parameters (Pydantic) – mirrors the Java nested static class
     # ------------------------------------------------------------------ #
     class Parameters(ReactAgent.Parameters):
         class DocumentType(str, Enum):
             SKS = "SKS"
             POWER_OF_ATTORNEY = "POWER_OF_ATTORNEY"
             PROFORMA_DOCUMENT = "PROFORMA_DOCUMENT"
+            ID = "ID"
 
+        # Use JSON aliases to preserve the camelCase names exposed in Java
         customer_number: str = Field(
             ...,
             alias="customerNumber",
-            description="Unique customer number of the estate the document refers to.",
+            description=(
+                "Unique customer number of the estate the document refers to. "
+                "If the document is an ID, this is the customer number for the ID owner (not the estate)."
+            ),
         )
         file_name: str = Field(
             ...,
             alias="fileName",
             description="Unique file name for the file to upload.",
         )
-        document_type: DocumentType = Field(
+        document_type: "Capt.Parameters.DocumentType" = Field(
             ...,
             alias="documentType",
             description=(
@@ -70,7 +70,6 @@ class Capt(AbstractTool):
             ),
         )
 
-        # Accept both field names and aliases when parsing
         model_config = {"populate_by_name": True}
 
     # ------------------------------------------------------------------ #
@@ -80,12 +79,12 @@ class Capt(AbstractTool):
         super().__init__(
             id_="CAPT",
             description=(
-                "This tool allows uploading files like Proforma Document, Power of "
-                "Attorney document (PoA), and Probate Certificate (SKS), that are "
-                "then made available to other applications. **STRICTLY** do not use "
-                "this tool to check the type of a document."
+                "This tool allows uploading files like Proforma Document, Power of Attorney "
+                "document (PoA), and Probate Certificate (SKS), and persons' IDs, that are then "
+                "made available to other applications. **STRICTLY** do not use this tool to "
+                "check the type of a document."
             ),
-            parameters_cls=Capt.Parameters,
+            schema=Capt.Parameters,
         )
 
     # ------------------------------------------------------------------ #
@@ -93,34 +92,26 @@ class Capt(AbstractTool):
     # ------------------------------------------------------------------ #
     def invoke(self, call: ToolCall) -> ToolCallResult:  # noqa: D401
         """
-        Execute the CAPT upload.
-
-        Expected arguments (by alias, as per schema):
-          - customerNumber : str
-          - fileName       : str
-          - documentType   : {"SKS","POWER_OF_ATTORNEY","PROFORMA_DOCUMENT"}
-
-        Notes
-        -----
-        * The method fetches the file content via the Peace.GetFileContentApi mock,
-          using the current scenario, and then stores the content into the
-          ExecutionContext according to the selected document type.
+        Execute the upload:
+        * Validate required arguments.
+        * Fetch file content from the scenario via Peace.GetFileContentApi.ID.
+        * Store content into the execution context map depending on documentType.
+        * Log an UploadEntry.
         """
-        # @NonNull on parameter → explicit check
+        # @NonNull in Java → explicit None check in Python
         if call is None:
             raise ValueError("call must not be None")
+
         if not self.is_initialized():
-            # Java threw IllegalArgumentException; per instructions map to ValueError.
+            # Java throws IllegalArgumentException → map to ValueError
             raise ValueError("Tool must be initialized.")
 
-        # Clone & sanitise arguments (remove LLM's internal 'thought' if present)
-        args: dict[str, object] = dict(call.arguments)
+        # Clone & sanitise arguments (remove LLM 'thought' if present)
+        args = dict(call.arguments)
         args.pop("thought", None)
 
-        # Required parameters (accept both aliases and snake_case fallbacks)
-        customer_number = (
-            self.get_string("customerNumber", args)
-        )
+        # Required parameters (Java uses AbstractTool.getString and returns error text)
+        customer_number = self.get_string("customerNumber", args)
         if customer_number is None:
             return ToolCallResult.from_call(
                 call,
@@ -129,74 +120,43 @@ class Capt(AbstractTool):
 
         file_name = self.get_string("fileName", args)
         if file_name is None:
-            return ToolCallResult.from_call(
-                call,
-                "ERROR: You must provide name of file to upload.",
-            )
+            return ToolCallResult.from_call(call, "ERROR: You must provide name of file to upload.")
 
-        # Retrieve file content from the scenario using the dedicated Peace API
-        scenario_id = self._require_scenario_id()
+        # Retrieve the file content from scenarios (Peace.GetFileContentApi.ID)
+        scenario_id = self.get_scenario_id()
         file_content = ScenarioComponent.get_instance().get(
-            scenario_id,
-            Peace.GetFileContentApi.ID,  # use the specific API as in Java
-            args,
+            scenario_id, Peace.GetFileContentApi.ID, args
         )
 
-        if "error" in file_content.lower():
+        if isinstance(file_content, str) and "error" in file_content.lower():
             return ToolCallResult.from_call(
-                call,
-                f"ERROR: File {file_name} seems not to exist.",
+                call, f"ERROR: File {file_name} seems not to exist."
             )
 
-        # Document type routing (string as provided by the tool call)
-        document_type = (
-            self.get_string("documentType", args)
-            or self.get_string("document_type", args)
-        )
-        if document_type is None:
-            return ToolCallResult.from_call(call, "ERROR: Invalid document type: None")
-
-        ctx = self._require_execution_context()
-
+        # Route storage by documentType (mirror Java's switch statement)
+        document_type = self.get_string("documentType", args)
         if document_type == "SKS":
-            ctx.sks[customer_number] = file_content
+            self.get_execution_context().sks[customer_number] = file_content
         elif document_type == "POWER_OF_ATTORNEY":
-            ctx.poa[customer_number] = file_content
+            self.get_execution_context().poa[customer_number] = file_content
         elif document_type == "PROFORMA_DOCUMENT":
-            ctx.proforma_document[customer_number] = file_content
+            self.get_execution_context().proforma_document[customer_number] = file_content
+        elif document_type == "ID":
+            # do nothing fro now
         else:
             return ToolCallResult.from_call(
                 call, f"ERROR: Invalid document type: {document_type}"
             )
 
-        # Log the upload action in the execution context
+        # Log the upload
+        ctx = self.get_execution_context()
         ctx.log(
             ExecutionContext.UploadEntry(
                 ExecutionContext.LogEntryType.UPLOAD,
                 customer_number=customer_number,
-                document_type=document_type,
+                document_type=document_type or "",
                 content=file_content,
             )
         )
 
         return ToolCallResult.from_call(call, "File was successfully uploaded.")
-
-    # ------------------------------------------------------------------ #
-    # Internal helpers
-    # ------------------------------------------------------------------ #
-    def _require_execution_context(self) -> ExecutionContext:
-        lab = self._agent  # set during init(...) in the hosting agent
-        from executor_module import ExecutorModule  # local import to avoid cycle
-        from lab_agent import LabAgent  # local import to avoid cycle
-
-        if isinstance(lab, LabAgent) and lab.execution_context is not None:
-            return lab.execution_context
-        if isinstance(lab, ExecutorModule):
-            inner = lab.agent
-            if isinstance(inner, LabAgent) and inner.execution_context is not None:
-                return inner.execution_context
-        raise RuntimeError("Execution context is not set.")
-
-    def _require_scenario_id(self) -> str:
-        ctx = self._require_execution_context()
-        return ctx.scenario_id

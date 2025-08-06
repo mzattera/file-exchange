@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
@@ -17,6 +18,7 @@ import com.infosys.small.react.ReactAgent;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 /**
@@ -386,10 +388,9 @@ public class Peace extends LabAgent {
 			args.remove("thought"); // As we are passing it, we must remove or it won't match tools
 
 			String category = getString("category", args);
-			if (!List
-					.of("Proforma's Balance", "Paid bill", "Sent email asking for SKS", "SKS registered",
-							"PoA uploaded in CF", "Created netbank to CPR", "Info email sent", "Transferred udlaeg")
-					.contains(category))
+			if (!List.of("Proforma's Balance", "Paid bill", "Sent email asking for SKS", "SKS registered",
+					"PoA uploaded in CF", "Created netbank to CPR", "Info email sent", "Transferred udlaeg",
+					"Rejected to pay bill to").contains(category))
 				return new ToolCallResult(call, "Error: category for the message was not provided or not supported.");
 
 			String timeCreated = getString("timeCreated", args, "null");
@@ -413,6 +414,7 @@ public class Peace extends LabAgent {
 
 	/** Data for one person */
 	@NoArgsConstructor
+	@RequiredArgsConstructor
 	@Getter
 	@Setter
 	public static class Person {
@@ -423,7 +425,7 @@ public class Peace extends LabAgent {
 
 		@JsonProperty(value = "Relation To Estate", required = true)
 		@JsonPropertyDescription("The relation between this person and their related estate. Possible values are: \"Lawyer\", \"Other\",\"Power of attorney\",\"Heir\",\"Guardian/værge\",\"Guardian/skifteværge\",\"Beneficiary\",\"Spouse\",\"Cohabitee\",\"One man company\",\"I/S\",\"K/S\",\"Joint\",\"Deceased\".")
-		public @NonNull String relationToEstate;
+		public @NonNull String relationToEstate = "None";
 
 		@JsonProperty(value = "Name", required = true)
 		@JsonPropertyDescription("Client first and last name.")
@@ -431,23 +433,23 @@ public class Peace extends LabAgent {
 
 		@JsonProperty(value = "Identification Completed", required = true)
 		@JsonPropertyDescription("An indicator whether the person has been identified and how. Possible values are: \"None\",\"OK – Customer\",\"OK – Non Customer\",\"OK – Professionals\",\"Awaiting\",\"Not relevant\"; this field can be updated if and only if instructed by the user and only after identification has been performed by an Operations Officer.")
-		public String identificationCompleted;
+		public String identificationCompleted = "None";
 
 		@JsonProperty(value = "Power Of Attorney Type", required = true)
 		@JsonPropertyDescription("The person might have a power of attorney on the estate's assets; this fields describes it. Possible values are: \"Alone\" when only this person has power of attorney, \"Joint\" when power of attorney is shared between this person and another individual, \"None\" in  all other cases.")
-		public @NonNull String powerOfAttorneyType;
+		public @NonNull String powerOfAttorneyType = "None";
 
-		@JsonProperty(value = "Address", required = true)
+		@JsonProperty(value = "Address")
 		@JsonPropertyDescription("The person's full address.")
-		public @NonNull String address;
+		public @NonNull String address = "";
 
-		@JsonProperty(value = "Email", required = true)
+		@JsonProperty(value = "Email")
 		@JsonPropertyDescription("The person's email.")
-		public @NonNull String email;
+		public @NonNull String email = "";
 
-		@JsonProperty(value = "Phone Number", required = true)
+		@JsonProperty(value = "Phone Number")
 		@JsonPropertyDescription("The person's phone number.")
-		public @NonNull String phoneNumber;
+		public @NonNull String phoneNumber = "";
 	}
 
 	/** Retrieves the people related to an estate. */
@@ -499,6 +501,113 @@ public class Peace extends LabAgent {
 		}
 	}
 
+	/** Creates a record for a new related person. */
+	public static class AddPersonDataApi extends Api {
+		public static class Parameters extends ReactAgent.Parameters {
+			@JsonProperty(required = true)
+			@JsonPropertyDescription("Unique customer number of the estate related to this person.")
+			public String estateCustomerNumber;
+
+			@JsonPropertyDescription("The relation between this person and their related estate. Possible values are: \"Lawyer\", \"Other\",\"Power of attorney\",\"Heir\",\"Guardian/værge\",\"Guardian/skifteværge\",\"Beneficiary\",\"Spouse\",\"Cohabitee\",\"One man company\",\"I/S\",\"K/S\",\"Joint\",\"Deceased\". Translate any other value provided in a different language before calling this tool.")
+			public String relationToEstate;
+
+			@JsonProperty(required = true)
+			@JsonPropertyDescription("The person's name.")
+			public String name;
+
+			@JsonPropertyDescription("An indicator whether the person has been identified and how. Possible values are: \"None\",\"OK – Customer\",\"OK – Non Customer\",\"OK – Professionals\",\"Awaiting\",\"Not relevant\". Translate any other value provided in a different language before calling this tool.")
+			public String identificationCompleted;
+
+			@JsonPropertyDescription("The person might have a power of attorney on the estate's assets; this fields describes it. Possible values are: \"Alone\" when only this person has power of attorney, \"Joint\" when power of attorney is shared between this person and another individual, \"None\" in  all other cases. Translate any other value provided in a different language before calling this tool.")
+			public String powerOfAttorneyType;
+
+			@JsonPropertyDescription("The person's home address.")
+			public String address;
+
+			@JsonPropertyDescription("The person's email address.")
+			public String email;
+
+			@JsonPropertyDescription("The person's phone number.")
+			public String phoneNumber;
+		}
+
+		public AddPersonDataApi() {
+			super("addPersonData",
+					"Create a new record for a person related to the estate. Do *NOT* use this if you only need to update or read person's data.",
+					Parameters.class);
+		}
+
+		@Override
+		public ToolCallResult invoke(@NonNull ToolCall call, boolean log) throws Exception {
+			if (!isInitialized()) {
+				throw new IllegalArgumentException("Tool must be initialized.");
+			}
+
+			Map<String, Object> args = new HashMap<>(call.getArguments());
+			args.remove("thought"); // As we are passing it, we must remove or it won't match tools
+			String scenario = getLabAgent().getScenarioId();
+
+			String estateCustomerNumber = (String) args.get("estateCustomerNumber");
+			if (estateCustomerNumber == null || estateCustomerNumber.isEmpty()) {
+				return new ToolCallResult(call,
+						"ERROR: You must provide the unique Customer Number (CPR) for the estate related to the person.");
+			}
+			String name = (String) args.get("name");
+			if (name == null || name.isEmpty()) {
+				return new ToolCallResult(call,
+						"ERROR: You must provide the person's name when creating a new person.");
+			}
+
+			// We always force this customer number for new clients
+			String customerNumber = "66642666";
+
+			Person person = new Person(customerNumber, name);
+			getExecutionContext().getRelatedPersons().put(estateCustomerNumber, person);
+			if (true) // Always log updates
+				getLabAgent().getExecutionContext().log(scenario, call.getTool().getId(), args);
+
+			if (args.containsKey("relationToEstate")) {
+				String value = (String) args.get("relationToEstate");
+				if (value != null && !value.isEmpty()) {
+					person.setRelationToEstate(value);
+				}
+			}
+			if (args.containsKey("identificationCompleted")) {
+				String value = (String) args.get("identificationCompleted");
+				if (value != null && !value.isEmpty()) {
+					person.setIdentificationCompleted(value);
+				}
+			}
+			if (args.containsKey("powerOfAttorneyType")) {
+				String value = (String) args.get("powerOfAttorneyType");
+				if (value != null && !value.isEmpty()) {
+					person.setPowerOfAttorneyType(value);
+				}
+			}
+			if (args.containsKey("address")) {
+				String value = (String) args.get("address");
+				if (value != null && !value.isEmpty()) {
+					person.setAddress(value);
+				}
+			}
+			if (args.containsKey("email")) {
+				String value = (String) args.get("email");
+				if (value != null && !value.isEmpty()) {
+					person.setEmail(value);
+				}
+			}
+			if (args.containsKey("phoneNumber")) {
+				String value = (String) args.get("phoneNumber");
+				if (value != null && !value.isEmpty()) {
+					person.setPhoneNumber(value);
+				}
+			}
+
+			return new ToolCallResult(call,
+					"New customer added with Customer Number=" + customerNumber);
+		}
+	}
+
 	/** Updates information for a single related person. */
 	public static class UpdatePersonDataApi extends Api {
 		public static class Parameters extends ReactAgent.Parameters {
@@ -544,8 +653,6 @@ public class Peace extends LabAgent {
 			Map<String, Object> args = new HashMap<>(call.getArguments());
 			args.remove("thought"); // As we are passing it, we must remove or it won't match tools
 			String scenario = getLabAgent().getScenarioId();
-			if (true) // Always log updates
-				getLabAgent().getExecutionContext().log(scenario, call.getTool().getId(), args);
 
 			String customerNumber = getString("customerNumber", args, "null");
 			Person person = getExecutionContext().getRelatedPersons().get(customerNumber);
@@ -554,6 +661,9 @@ public class Peace extends LabAgent {
 			if (person == null)
 				return new ToolCallResult(call,
 						"ERROR: Cannot update non-existing customer with Customer Number=" + customerNumber);
+
+			if (true) // Always log updates
+				getLabAgent().getExecutionContext().log(scenario, call.getTool().getId(), args);
 
 			if (args.containsKey("relationToEstate")) {
 				String value = (String) args.get("relationToEstate");
@@ -608,13 +718,15 @@ public class Peace extends LabAgent {
 	public Peace() {
 		super("PEACE",
 				"This tool is used to manage process tasks, each task being uniquely identified by the combination of 'Time Created' and 'Client Number'; "
-						+ "this includes assigning tasks to an operator and marking tasks closed, and managing task attachments. " //
-						+ "It can also be used to retrieve conent of files attached to tasks. " //
-						+ "It also stores a diary used to log specific task steps and their outcomes; notice diaries are associated to tasks, so they can be retrieved only through a task. "
-						+ "It can create diary entries but only one at a time and for a specific task. "
+						+ "this includes assigning tasks to an operator and marking tasks closed, and accessing task attachments. " //
+						+ "Task attachments are accessed through their unique file name. This tool is NOT a general source for documents." //
+						+ "This tool stores a diary used to log specific task steps and their outcomes; notice diaries are associated to tasks, so they can be retrieved only through a task. "
+						+ "It can create diary entries but only one at a time and for a specific task. " //
 						+ "The diary is not to be used for normal communication, it must be used only when mandated by a business process. " //
-						+ "It also contains personal data for estates and their related persons, both identified by their unique customer numbers; " //
-						+ "however, this tool has no access to people's accounts; **STRICTLY** do not use this tool to check if a person has an account or other relationship with the bank. ", //
+						+ "This tool does NOT provide any way to communicate with customers. " //
+						+ "This tool gives access to personal data for estates, their related persons, and other customers, all identified by their unique customer numbers; " //
+						+ "however, this tool has no access to people's bank accounts; **STRICTLY** do not use this tool to check if a person has an account or other relationship with the bank. " //
+						+ "This tool does NOT provide any way to communicate with customers. ", //
 				List.of( //
 						new GetUnassignedTasksApi(), //
 						new AssignTaskApi(), //
@@ -625,6 +737,7 @@ public class Peace extends LabAgent {
 						new GetDiaryEntriesApi(), //
 						new UpdateDiaryApi(), //
 						new GetRelatedPersonsApi(), //
+						new AddPersonDataApi(), //
 						new UpdatePersonDataApi() //
 				));
 
@@ -636,6 +749,8 @@ public class Peace extends LabAgent {
 						+ "  * Probate Court (Skifteretten) Notification Letter is an official letter from Skifteretten informing the heirs about the opening of an estate after a person’s death; this is **NOT** same as SKS, even it might notify heirs that SKS has been issued.\n"
 //						+ "  * When asked to determine the type of a file, use the above document types if and only if any matches, if none of the above document type matches, check if the file can be categorised as a bill/invoice; if not, return a short description of the document contents and the best definition of its type you can come up with.\n"
 						+ "  * When asked to determine the type of an attachment, don't simply provide the file name but try to infer its type and provide a short summary of contents.\n"
+						+ "  * When asked to retrieve a file, if its unique file name is provided, proceed with retrieving it; **STRICTLY** never check if it is attached to any task.\n"
+						+ "  * When asked to compareretrieve a file, if its unique file name is provided, proceed with retrieving it; **STRICTLY** never check if it is attached to any task.\n"
 
 						+ "  * To indicate time stamps, always use \"mm/dd/yyyy, hh:mm AM/PM\" format (e.g. \"4/16/2025, 2:31 PM\").\n"
 						+ "  * For amounts, always use the format NNN,NNN.NN CCC (e.g. \"2,454.33 DKK\")."
@@ -658,7 +773,8 @@ public class Peace extends LabAgent {
 						+ "  * Persons are uniquely identified by their Customer Number, sometimes also referred as CPR. Always provide the Customer Number if a tool needs to act on a specific person/client; indicate it as Customer Number and not CPR when passing it to tools.\n"
 						+ "  * When asked to update person's data, you do not need to retrieve the full record for the person record; just updates the fields provided by the user ignoring others.\n"
 
-						+ "  * When asked to check customers' accounts return an error stating that you do not have access to customer accounts..\n"
+						+ "  * When asked to check customers' accounts return an error stating that you do not have access to customer accounts.\n"
+						+ "  * When asked to communicate with customers (e.g. sending an email) return an error stating that you have no access to client communications.\n"
 
 						+ "  * When writing diary entries you **MUST** use one of the following categories for the entry:\n"
 						+ "         \"Proforma's Balance\" to record balance available in the Proforma Document.\n"
@@ -669,6 +785,7 @@ public class Peace extends LabAgent {
 						+ "         \"SKS registered\": to record that SKS document was uploaded.\\n"
 						+ "         \"PoA uploaded in CF\": to record that Power of Attorney document was uploaded.\n"
 						+ "         \"Created netbank to CPR\": to record that accounts for one estate have been unblocked.\n"
+						+ "         \"Rejected to pay bill to\": to record that one bill/invoice could not be paid.\n"
 						+ "  * All entries in the diary should be in English.\n"
 						+ "  * The diary is not to be used for communication with users; you must create entries in the diary only when required to do so.\n"
 						+ "  * **STRICTLY** Never create diary entries, unless instructed by the user. Do not create entries to document activities you have done, unless instructed to do so.\n" //
@@ -743,6 +860,61 @@ public class Peace extends LabAgent {
 				+ "    \"action_steps\" : [ ]\n" //
 				+ "  }\n" //
 				+ "" + "\n---\n\n" //
+				+ "Input & Context:\n\n" //
+				+ "You are tasked with updating customer information, but you are not provided with any field to update.\n" //
+				+ "\nCorrect Output:\n\n" //
+				+ "{\n" //
+				+ "    \"status\" : \"COMPLETED\",\n" //
+				+ "    \"actor\" :  <your ID here>,\n" //
+				+ "    \"thought\" : \"I have compared the information provided for John Doe with the current record. No update is needed.\",\n" //
+				+ "    \"observation\" : \"No changes were made to John Doe's record as all available data is already up to date.\"\n" //
+				+ "}\n" //
+				+ "\nIncorrect Output:\n\n" //
+				+ "Call \"updatePersonData\" tool to perform an update with no data.\n" //
+				+ "\n---\n\n" //
+  				+ "Input & Context:\n\n" //
+				+ "<steps> contains the following steps:\n" //
+				+ "{\n" //
+				+ "    \"status\" : \"IN_PROGRESS\",\n" //
+				+ "    \"actor\" :  <your ID here>,\n" //
+				+ "    \"thought\" : \"I am starting execution of the below user's command in <user_command> tag.\\n\\n<user_command>\\nCompare John Doe with data from the current task. If any data is missing or outdated , update their records accordingly.\\n</user_command>\",\n" //
+				+ "    \"observation\" : \"Execution just started.\"\n" //
+				+ "  }, {\n" //
+				+ "    \"status\" : \"IN_PROGRESS\",\n" //
+				+ "    \"actor\" :  <your ID here>,\n" //
+				+ "    \"thought\" : \"To compare and update the records for John Doe, I need to retrieve existing data.\",\n" //
+				+ "    \"observation\" : \"[{\\\"Name\\\":\\\"John Doe\\\",\\\"Address\\\":\\\"Nowhere Rd. 1\\\",\\\"Email\\\":\\\"\\\",\\\"Phone Number\\\":\\\"\\\"}]\",\n" //
+				+ "    \"action\" : \"The tool \\\"getRelatedPersons\\\" has been called\",\n" //
+				+ "    \"action_input\" : \"{\\\"customerNumber\\\":\\\"55555555555\\\"}\",\n" //
+				+ "    \"action_steps\" : [ ]\n" //
+				+ "  }, {\n" //
+				+ "    \"status\" : \"IN_PROGRESS\",\n" //
+				+ "    \"actor\" :  <your ID here>,\n" //
+				+ "    \"thought\" : \"To compare the current records for Lars Tai and John Doe with all available data, I need to retrieve the content of the current task, which may contain updated information or attachments.\",\n" //
+				+ "    \"observation\" : <Task content>,\n" //
+				+ "    \"action\" : \"The tool \\\"getTaskContent\\\" has been called\",\n" //
+				+ "    \"action_input\" : \"{\\\"timeCreated\\\":\\\"01/01/2023, 1:00 PM\\\",\\\"customerNumber\\\":\\\"55555555555\\\"}\",\n" //
+				+ "    \"action_steps\" : [ ]\n" //
+				+ "  }\n" //
+				+ "\nCorrect Output:\n\n"
+				+ "  {\n" //
+				+ "    \"status\" : \"COMPLETED\",\n" //
+				+ "    \"actor\" :  <your ID here>,\n" //
+				+ "    \"thought\" : \"I have compared the record for John Doe with all available data from the current task; no new data is mavailable, no update needed.\",\n" //
+				+ "    \"observation\" : \"All available data has been reviewed and updated where possible. No further action is required.\"\n" //
+				+ "  }\n" //
+				+ "\nIncorrect Output:\n\n"
+				+ "Call \"updatePersonData\" tool to perform an update like below.\n" //
+				+ "  {\n" //
+				+ "    \"status\" : \"IN_PROGRESS\",\n" //
+				+ "    \"actor\" :  <your ID here>,\n" //
+				+ "    \"thought\" : \"For John Doe, the email field is missing in the system and not present in the task, so no update is possible.\",\n" //
+				+ "    \"observation\" : \"Data for Customer Number=55555555555 have been updated successfully.\",\n" //
+				+ "    \"action\" : \"The tool \\\"updatePersonData\\\" has been called\",\n" //
+				+ "    \"action_input\" : \"{\\\"Name\\\":\\\"John Doe\\\",\\\"Address\\\":\\\"Nowhere Rd. 1\\\",\\\"Email\\\":\\\"\\\",\\\"Phone Number\\\":\\\"\\\",\\\"customerNumber\\\":\\\"55555555555\\\"\"}\",\n" //
+				+ "    \"action_steps\" : [ ]\n" //
+				+ "  }\n" //
+				+ "\n---\n\n" //				
 				+ "Given the above examples, provide only the Correct Output for future inputs and context.\n" //
 		);
 	}

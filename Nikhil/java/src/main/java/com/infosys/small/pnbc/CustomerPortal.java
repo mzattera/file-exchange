@@ -94,7 +94,7 @@ public class CustomerPortal extends LabAgent {
 		}
 
 		public SendCommunicationApi() {
-			super("sendCommunication", "Sends an email message to the specified customer.", Parameters.class);
+			super("sendCommunication", "Sends an email message to the specified customer. **STRICTLY** use this tool ONLY when EXPLICITLY instructed by the user to send an email", Parameters.class);
 		}
 
 		@Override
@@ -119,9 +119,9 @@ public class CustomerPortal extends LabAgent {
 
 	public CustomerPortal() {
 		super("CUSTOMER_PORTAL", //
-				"This tool is the only point to access customers' bank accounts and corresponding transactions; "
-						+ "however it cannot be used to access or update other customers' data such as their address, email, etc.. "
-						+ "It also allows you to send emails to clients; if you use this capability, provide the Customer Number for the recipient (**NOT** their email). ",
+				"This tool provides access to customers' bank accounts and corresponding transactions. "
+						+ "In addition, it allows you to send emails to clients; if you use this capability, provide the Customer Number for the recipient (**NOT** their email). "
+						+ "This tool CANNOT be used to access or update customer's data other than their bank accounts.",
 				List.of( //
 						new GetAccountsApi(), //
 						new UnblockAccountsApi(), //
@@ -137,6 +137,7 @@ public class CustomerPortal extends LabAgent {
 						+ "  * Persons are uniquely identified by their Customer Number, sometimes also referred as CPR. **STRICTLY** always communicate Customer Number to any tool that needs to act on persons/clients; indicate it as Customer Number and not CPR. "
 						+ "Never identify a person only providing their name or email.\n"
 						+ "  * When asked to provide or update customers' data such as their address, email, etc. return an error message, stating that you do not have access to such data.\n"
+						+ "  * When asked to provide any customer related document, return an error message, stating that you do not have access to such data.\n"
 
 						+ "  * Account are uniquely identified by their account numbers; notice that spaces in account numbers are relevant.\n"
 						+ "  * Accounts can be personal or half-joint. This is indicated by their \"JO\" field: JO==N for Personal Accounts and JO==J for Half-Joint accounts.\n"

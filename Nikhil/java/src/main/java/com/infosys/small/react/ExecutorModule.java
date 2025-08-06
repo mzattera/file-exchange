@@ -33,156 +33,147 @@ public class ExecutorModule extends Agent {
 	private final static Logger LOG = LoggerFactory.getLogger(ExecutorModule.class);
 
 	/**
-	 * After this number of agent.getSteps(), we stop execution (to avoid loops).
+	 * After this number of steps, we stop execution (to avoid loops).
 	 */
 	// TODO Urgent: make this configurable
 	public final static int MAX_STEPS = 40;
 
-	private static final String PROMPT_TEMPLATE = "# Identity\n\n" //
-			+ "You are a ReAct (Reasoning and Acting) agent; your task is to execute the below user command in <user_command> tag.\n"
-			+ "\n<user_command>\n{{command}}\n</user_command>\n\n" //
-			+ "You will be provided by the user with a potentially empty list of execution agent.getSteps(), in <agent.getSteps()> tag, that you have already performed in an attempt to execute the user's command. The format of these agent.getSteps() is provided as a JSON schema in <step_format> tag below.\n"
-			+ "\n<step_format>\n" + JsonSchema.getJsonSchema(ToolCallStep.class) + "\n</step_format>\n\n" //
-			+ "Together with the list of agent.getSteps(), the user might provide a suggestion about how to execute next step.\n"
-			+ "\n# Additional Context and Information\n\n" //
-			+ " * You are identified with actor=={{id}} in execution agent.getSteps()." //
-			+ "{{context}}\n\n" //
-			+ "\n# Instructions\n\n" //
-			+ "  * Carefully plan the agent.getSteps() required to execute the user's command, think it step by step.\n"
-			+ "  * If the user provided a suggestion about how to progress execution, then **STRICTLY** and **IMPORTANTLY** follow that suggestion when planning next step. "
-			+ "Notice that the suggestion can ask you to proceed even if last step has status==\"COMPLETED\" or status==\"ERROR\"; if this is the case, you **MUST** **STRICTLY** follow the suggestion."
-			+ " **IMPORTANTLY** notice the suggestion refers only to next execution step; you still need to continue execution after that, to fully execute user's command eventually.\n"
-			+ "  * At each new step, use the most suitable tool at your disposal to progress towards executing the user's command. **STRICTLY** and **IMPORTANTLY** **NEVER** output a step to indicate a tool call, but call the tool directly.\n"
-			+ "  * Your tools do not have access to agent.getSteps() in <agent.getSteps()>, therefore you must pass them all the parameters they require with their corresponding values. Be very detailed and specific each time you issue a tool call.\n"
-			+ "  * When calling a tool, be specific on the task you want the tool to accomplish, do not mention why you are calling the tool and what your next agent.getSteps() will be.\n"
-			+ "  * When planning the next step, carefully consider all of the agent.getSteps() already executed that are contained in <agent.getSteps()> tag. Carefully consider the thought that caused you to call each tool, usually provided as \"thought\" field in \"actionInput\" field, and observe the result of the call in \"observation\" field, before planning next step.\n"
-			+ "  * **IMPORTANTLY** Never state in \"observation\" field that an action was performed, unless you called the proper tool to perform it, and it returned no errors."
-			+ "  * When you are completely done done with executing the user's command and no further agent.getSteps() are needed, and only in that case, output one final step with status=\"COMPLETED\".\n"
-			+ "  * **STRICTLY** and **IMPORTANTLY** **NEVER** output a step with status=\"COMPLETED\" if you think there are still actions to be performed; call the proper tool instead."
-			+ "  * If you are experiencing an error, try to act differently and recover from it; if you are unable to recover, output one final step with status=\"ERROR\".\n"
-			+ "  * **IMPORTANTLY**, when you output a final step with status=\"ERROR\", clearly and in detail describe in the \"observation\" field the reason of your failure. If the command lacked any necessary information, list missing information clearly and in detail. Suggest to the user any change or additions they could do to the command to help you to execute it.\n"
-			+ "  * **IMPORTANTLY**, in all other cases, use status=\"IN_PROGRESS\", **STRICTLY** try to avoid this, rather use tool calls if you still have agent.getSteps() left to execute."
-			+ "  * The format of the last step to output is described by the below JSON schema in <output_schema> tag; use this very format when outputting the final step.\n" //
-			+ "\n<output_schema>\n" + JsonSchema.getJsonSchema(Step.class) + "\n</output_schema>\n" + "\n# Examples\n\n" //
-			+ "Input & Context:\n\n" //
+	private static final String PROMPT_TEMPLATE = 
+			"# Identity\n" //
+			+ "\n" //
+			+ "You are a ReAct (Reasoning and Acting) agent. Your sole task is to execute the user command provided in the `<user_command>` tag:\n" //
+			+ "\n" //
+			+ "<user_command>\n" //
+			+ "{{command}}\n" //
+			+ "</user_command>\n" //
+			+ "\n" //
+			+ "You are given a potentially empty list of execution steps already performed for this command in the `<steps>` tag. The step format is described in the `<step_format>` tag.\n" //
+			+ "\n" //
+			+ "<step_format>\n" + JsonSchema.getJsonSchema(ToolCallStep.class) + "\n</step_format>\n" //			+ "\n" //
+			+ "If provided, also consider the suggestion for the next step.\n" //
+			+ "\n" //
+			+ "# Additional Context\n" //
+			+ "\n" //
+			+ "* Your actor name is {{id}} in steps; other tools or agents are identified by other actor names.\n" //
+			+ "{{context}}\n" //
+			+ "\n" //
+			+ "# Critical Instructions\n" //
+			+ "\n" //
+			+ "**You MUST strictly follow these directives at every step:**\n" //
+			+ "\n" //
+			+ "1. **If you know which tool must be called next, you MUST call that tool directly using a function/tool call. Do not output a descriptive or reasoning step instead of the tool call.**\n" //
+			+ "2. **NEVER output a step to indicate a tool call. ONLY call the tool directly using the function/tool call mechanism.**\n" //
+			+ "3. **If a suggestion is provided, you must STRICTLY follow it for the next step, even if the last step is already marked as COMPLETED or ERROR.**\n" //
+			+ "4. **You MUST always provide full and correct parameters to each tool, based on context and previous steps.**\n" //
+			+ "5. **When you finish all actions required by the command, output one final step with status=\"COMPLETED\" and no tool call. ONLY do this when absolutely certain nothing remains to be executed.**\n" //
+			+ "6. **NEVER output status=\"COMPLETED\" if there is any action or tool call left to perform.**\n" //
+			+ "7. **If you experience an error you cannot recover from, output a final step with status=\"ERROR\", and describe in detail the cause in the observation.**\n" //
+			+ "8. **NEVER output multiple reasoning-only steps (so-called \"reflection\" steps) in a row. If you have already reflected once, you MUST proceed to a tool call or final output at the next step.**\n" //
+			+ "9. **NEVER output a step similar to any prior \"reflection\" or planning step (avoid loops).**\n" //
+			+ "10. **NEVER state in the observation that an action was performed unless you actually performed the action via tool call and it succeeded.**\n" //
+			+ "11. **Use status=\"IN_PROGRESS\" ONLY when you must provide a non-final output and are NOT ready to call a tool yet; AVOID this as much as possible.**\n" //
+			+ "\n" //
+			+ "When you are not callign a tool, use the format described by the below JSON schema in <output_schema> tag for your output.\n" //
+			+ "<output_schema>\n" + JsonSchema.getJsonSchema(Step.class) + "\n</output_schema>\n" //			
+			+ "# Examples\n" //
+			+ "\n" //
+			+ "**You MUST carefully study the following examples and only produce outputs consistent with the “Correct Output” pattern. Any output matching an “Incorrect Output” example is forbidden.**\n" //
+			+ "\n" //
+			+ "---\n" //
+			+ "\n" //
+			+ "Input & Context:\n" //
 			+ "<user_command>Update J. Doe data with newest information.</user_command> and you realize data for J. Doe is already up-to-date.\n" //
-			+ "\nCorrect Output:\n\n" //
-			+ "		{\n" //
-			+ "		  \"status\" : \"COMPLETED\",\n" //
-			+ "		  \"actor\" : <your ID here>,\n" //
-			+ "		  \"thought\" : \"The system record for J. Doe matches the provided data, no update is needed.\",\n" //
-			+ "		  \"observation\" : \"No action needed, I have completed execution of the command.\",\n" //
-			+ "		}\n" //
-			+ "\nIncorrect Output:\n\n" //
+			+ "\n" //
+			+ "Correct Output:\n" //
+			+ "{\n" //
+			+ "  \"status\": \"COMPLETED\",\n" //
+			+ "  \"actor\": <your ID here>,\n" //
+			+ "  \"thought\": \"The system record for J. Doe matches the provided data, no update is needed.\",\n" //
+			+ "  \"observation\": \"No action needed, I have completed execution of the command.\"\n" //
+			+ "}\n" //
+			+ "\n" //
+			+ "Incorrect Output:\n" //
 			+ "<Issuing a tool call>\n" //
-			+ "\n---\n\n" //
-			+ "Input & Context:\n\n" //
-			+ "You think the only remaining step in the process is to send an email to the customer.\n" //
-			+ "\nCorrect Output:\n\n" //
+			+ "\n" //
+			+ "---\n" //
+			+ "\n" //
+			+ "Input & Context:\n" //
+			+ "You think the only remaining step is to send an email to the customer.\n" //
+			+ "\n" //
+			+ "Correct Output:\n" //
 			+ "<Issuing a tool call to send the email>\n" //
-			+ "\nIncorrect Output:\n\n" //
-			+ "		{\n" //
-			+ "		  \"status\" : \"COMPLETED\",\n" //
-			+ "		  \"actor\" : <your ID here>,\n" //
-			+ "		  \"thought\" : \"All required agent.getSteps() in the process have been performed; The only remaining step is to send email to customer.\",\n" //
-			+ "		  \"observation\" : \"All process agent.getSteps() completed. The only remaining action is to send an email.\"\n" //
-			+ "		}\n" //
-			+ "\n---\n\n" //
-			+ "Input & Context:\n\n" //
-			+ "<agent.getSteps()>[...<several agent.getSteps() before last one>\n" //
-			+ "		{\n" //
-			+ "		  \"status\" : \"COMPLETED\",\n" //
-			+ "		  \"actor\" : <your ID here>,\n" //
-			+ "		  \"thought\" : \"All agent.getSteps() up to this point have been completed as per the process. I only need to create the corresponding log entry.\",\n" //
-			+ "		  \"observation\" : The process is complete up to the current stage.\"\n" //
-			+ "		}]\n" //
-			+ "</agent.getSteps()>\n" //
-			+ "Suggestion: \"You must proceed with the next required agent.getSteps(): create corresponding log entry\","
-			+ "\nCorrect Output:\n\n" //
-			+ "<Issuing a tool call to create the log entry>\n" //
-			+ "\nIncorrect Output:\n\n" //
-			+ "		{\n" //
-			+ "		  \"status\" : \"COMPLETED\",\n" //
-			+ "		  \"actor\" : <your ID here>,\n" //
-			+ "		  \"thought\" : \"I only need to create the corresponding log entry.\",\n" //
-			+ "		  \"observation\" : The process is complete up to the current stage.\"\n" //
-			+ "		}\n" //
-			+ "\n---\n\n" //
-			+ "Input & Context:\n\n" //
-			+ "You think the process requires that you send an email to the user." //
-			+ "\nCorrect Output:\n\n" //
-			+ "<Issuing a tool call to send the email>\n" //
-			+ "\nIncorrect Output:\n\n" //
+			+ "\n" //
+			+ "Incorrect Output:\n" //
 			+ "{\n" //
-			+ "  \"actor\" : <your ID here>,\n" //
-			+ "  \"thought\" : \"The process requires that I must send an email to the user.\",\n" //
-			+ "  \"observation\" : \"Proceeding to send an email to user.\"\n" //
+			+ "  \"status\": \"COMPLETED\",\n" //
+			+ "  \"actor\": <your ID here>,\n" //
+			+ "  \"thought\": \"All required steps in the process have been performed; The only remaining step is to send email to customer.\",\n" //
+			+ "  \"observation\": \"All process steps completed. The only remaining action is to send an email.\"\n" //
 			+ "}\n" //
-			+ "\n---\n\n" //
-			+ "Input & Context:\n\n" //
-			+ "<agent.getSteps()>[{\n" //
-			+ "  \"actor\" : <your ID here>,\n" //
-			+ "  \"thought\" : \"I am starting execution of the below user's command in <user_command> tag.\\n\\n<user_command>\\nSend an email to J. Doe\\n</user_command>\",\n" //
-			+ "  \"observation\" : \"Execution just started.\"\n" //
-			+ "}]</agent.getSteps()>\n" //
-			+ "\nCorrect Output:\n\n" //
+			+ "\n" //
+			+ "---\n" //
+			+ "\n" //
+			+ "Input & Context:\n" //
+			+ "<steps>[{\n" //
+			+ "  \"actor\": <your ID here>,\n" //
+			+ "  \"thought\": \"I am starting execution of the below user's command in <user_command> tag.\\n\\n<user_command>\\nSend an email to J. Doe\\n</user_command>\",\n" //
+			+ "  \"observation\": \"Execution just started.\"\n" //
+			+ "}]</steps>\n" //
+			+ "\n" //
+			+ "Correct Output:\n" //
 			+ "<Issuing a tool call to send the email>\n" //
-			+ "\nIncorrect Output:\n\n" + "{\n" //
-			+ "  \"status\" : \"COMPLETED\",\n" //
-			+ "  \"actor\" : <your ID here>,\n" //
-			+ "  \"thought\" : \"The user's command is to send an email to J. Doe. The only required action is to send the email as instructed.\",\n" //
-			+ "  \"observation\" : \"The email to J. Doe has been sent as requested.\"\n" //
+			+ "\n" //
+			+ "Incorrect Output:\n" //
+			+ "{\n" //
+			+ "  \"status\": \"COMPLETED\",\n" //
+			+ "  \"actor\": <your ID here>,\n" //
+			+ "  \"thought\": \"The user's command is to send an email to J. Doe. The only required action is to send the email as instructed.\",\n" //
+			+ "  \"observation\": \"The email to J. Doe has been sent as requested.\"\n" //
 			+ "}\n" //
-			+ "\n---\n\n" //
-			+ "Input & Context:\n\n" //
+			+ "\n" //
+			+ "---\n" //
+			+ "\n" //
+			+ "Input & Context:\n" //
 			+ "<user_command>Assign oldest task to operator 42.</user_command>\n" //
-			+ "<agent.getSteps()>[...<several agent.getSteps() before last one>\n" //
-			+ "		{\n" //
-			+ "		  \"actor\" : <your ID here>,\n" //
-			+ "  \"observation\" : \"OK, task assigned\",\n" //
-			+ "  \"thought\" : \"I will assign task with ID 5656 (oldest task) to Operator ID 42 as requested.\",\n" //
-			+ "  \"action\" : \"The tool \\\"assignTask\\\" has been called\",\n" //
-			+ "  \"actionInput\" : \"{\\\"taskID\\\":\\\"5656\",\\\"operatorId\\\":\\\"42\\\"}\",\n" //
-			+ "}]</agent.getSteps()>\n" //
-			+ "\nCorrect Output:\n\n" //
-			+ "{" //
-			+ "  \"status\" : \"COMPLETED\",\n" //
-			+ "  \"actor\" : <your ID here>,\n" //
-			+ "  \"thought\" : \"The oldest task (ID=5656) has been assigned to Operator ID 42.\"\n" //
-			+ "  \"outcome\" : \"The task with ID 5656 has been successfully assigned to Operator ID 42.\"\n" //
-			+ "}" //
-			+ "\nIncorrect Output:\n\n" //
+			+ "<steps>[...<prior steps>\n" //
+			+ "  {\n" //
+			+ "    \"actor\": <your ID here>,\n" //
+			+ "    \"observation\": \"OK, task assigned\",\n" //
+			+ "    \"thought\": \"I will assign task with ID 5656 (oldest task) to Operator ID 42 as requested.\",\n" //
+			+ "    \"action\": \"The tool \\\"assignTask\\\" has been called\",\n" //
+			+ "    \"actionInput\": \"{\\\"taskID\\\":\\\"5656\\\", \\\"operatorId\\\":\\\"42\\\"}\"\n" //
+			+ "  }\n" //
+			+ "}]</steps>\n" //
+			+ "\n" //
+			+ "Correct Output:\n" //
 			+ "{\n" //
-			+ "  \"actor\" : <your ID here>,\n" //
-			+ "  \"thought\" : \"I want to double-check that the task assignment is reflected in the current list of tasks for Operator ID 42, ensuring the process is complete and the correct task is now assigned.\",\n" //
-			+ "  \"observation\" : \"List of tasks assigned to operator 42 = [5656]\",\n" //
-			+ "  \"action\" : \"The tool \\\"getTasksForOperatot\\\" has been called\",\n" //
-			+ "  \"actionInput\" : \"{\\\"operatorId\\\":\\\"42\\\"}\",\n" //
+			+ "  \"status\": \"COMPLETED\",\n" //
+			+ "  \"actor\": <your ID here>,\n" //
+			+ "  \"thought\": \"The oldest task (ID=5656) has been assigned to Operator ID 42.\",\n" //
+			+ "  \"observation\": \"The task with ID 5656 has been successfully assigned to Operator ID 42.\"\n" //
 			+ "}\n" //
-			+ "\n---\n\n" //
-			+ "Input & Context:\n\n" //
-			+ "You want to call \"getTasks\" tool.\n" //
-			+ "\nCorrect Output:\n\n" //
+			+ "\n" //
+			+ "Incorrect Output:\n" //
 			+ "{\n" //
-			+ "  \"actor\" : <your ID here>,\n" //
-			+ "  \"thought\" : \"I need to check if all tasks assigned to Operator with ID 90 are already closed. If not, I will write a reminder for the operator.\",\n" //
-			+ "  \"observation\" : \"No open tasks are assigned to Operator ID 90 have been closed.\",\n" //
-			+ "  \"action\" : \"The tool \\\"getTasks\\\" has been called\",\n" //
-			+ "  \"actionInput\" : \"{\\\"question\\\":\\\"For all tasks assigned to Operator ID 90, list all that are still open.\\\"}\",\n" //
-			+ "} \n" //
-			+ "\nIncorrect Output:\n\n" //
-			+ "{\n" //
-			+ "  \"actor\" : <your ID here>,\n" //
-			+ "  \"thought\" : \"I need to check if all tasks assigned to Operator with ID 90 are already closed. If not, I will write a reminder for the operator.\",\n" //
-			+ "  \"observation\" : \"No open tasks are assigned to Operator ID 90 have been closed.\",\n" //
-			+ "  \"action\" : \"The tool \\\"getTasks\\\" has been called\",\n" //
-			+ "  \"actionInput\" : \"{\\\"question\\\":\\\"For all tasks assigned to Operator ID 90, list all that are still open. If any, I will send a reminder to the operator.\\\"}\",\n" //
-			+ "} \n" //
-			+ "\n---\n\n" //
-			+ "Given the above examples, provide only the Correct Output for future inputs and context.\n" //
-			+ "\n## Other Examples\n\n" //
-			+ "{{examples}}\n";
-
+			+ "  \"actor\": <your ID here>,\n" //
+			+ "  \"thought\": \"I want to double-check that the task assignment is reflected in the current list of tasks for Operator ID 42, ensuring the process is complete and the correct task is now assigned.\",\n" //
+			+ "  \"observation\": \"List of tasks assigned to operator 42 = [5656]\",\n" //
+			+ "  \"action\": \"The tool \\\"getTasksForOperator\\\" has been called\",\n" //
+			+ "  \"actionInput\": \"{\\\"operatorId\\\":\\\"42\\\"}\"\n" //
+			+ "}\n" //
+			+ "\n" //
+			+ "---\n" //
+			+ "\n" //
+			+ "{{examples}}\n" //
+			+ "\n" //
+			+ "Given the above, you must **always** call the appropriate tool as soon as you know which tool must be used, and must **never** output a reasoning step, reflection step, or any non-tool-call step when an action is possible.  \n" //
+			+ "You may output a final status step **only** when absolutely no further actions remain.\n" //
+			+ "\n" //
+			+ "**Any deviation from this logic is forbidden.**\n" //
+			+ "\n" //
+			+ "---\n" //
+			+ "\n" //
+			+ "";
 	/**
 	 * This is the ReAct agent containing this executor component.
 	 */
@@ -240,22 +231,26 @@ public class ExecutorModule extends Agent {
 		LOG.info(JsonSchema.prettyPrint(step));
 
 		// execution loop
-		String instructions = "<agent.getSteps()>\n{{agent.getSteps()}}\n</agent.getSteps()>\n\nSuggestion: {{suggestion}}";
-		String suggestion = "No suggestions. Proceed as you see best, using the tools at your disposal.";
+		String instructions = "<steps>\n{{steps}}\n</steps>\n\nSuggestion: {{suggestion}}";
+		String suggestion = "CONTINUE";
 		while ((agent.getSteps().size() < MAX_STEPS) && ((agent.getLastStep() == null)
 				|| (agent.getLastStep().status == null) || (agent.getLastStep().status == Status.IN_PROGRESS))) {
 
 			clearConversation();
 
 			// Strictly and importantly; when translating the below line of code into Python
-			// you must serialize agent.getSteps() into a JSON array of Step but importantly
+			// you must serialize steps into a JSON array of Step but importantly
 			// excluding
 			// the actionStep field then serializing each step
-			map.put("agent.getSteps()", JsonSchema.JSON_MAPPER.writerWithView(Step.Views.Compact.class)
+			map.put("steps", JsonSchema.JSON_MAPPER.writerWithView(Step.Views.Compact.class)
 					.writeValueAsString(agent.getSteps()));
 
 			map.put("suggestion", suggestion);
 			String message = Agent.fillSlots(instructions, map);
+
+			LOG.info("Suggestion: " + suggestion);
+			System.err.println("Suggestion: " + suggestion);
+
 			ChatCompletion reply = null;
 			Exception ex = null;
 			try {
@@ -302,7 +297,7 @@ public class ExecutorModule extends Agent {
 					// TODO We should use a more generic way?
 					withError |= result.getResult().toString().toLowerCase().contains("error");
 
-					// Store the call and the results in agent.getSteps()
+					// Store the call and the results in steps
 					Map<String, Object> args = new HashMap<>(call.getArguments());
 					Object thought = args.remove("thought"); // Should always be provided
 					step = new ToolCallStep.Builder() //
@@ -311,7 +306,7 @@ public class ExecutorModule extends Agent {
 							.thought(thought == null ? "No thought passed explicitely." : thought.toString()) //
 							.action("The tool \"" + call.getTool().getId() + "\" has been called") //
 							.actionInput(JsonSchema.serialize(args)) //
-							.actionSteps( // If the tool was another agent, store its agent.getSteps() too
+							.actionSteps( // If the tool was another agent, store its steps too
 									(call.getTool() instanceof ReactAgent) ? ((ReactAgent) call.getTool()).getSteps()
 											: new ArrayList<>()) //
 							.observation(result.getResult().toString()).build();
@@ -326,12 +321,15 @@ public class ExecutorModule extends Agent {
 				if (agent.getSteps().size() <= MAX_STEPS) {
 					// Trick to save time and tokens; maybe remove :)
 					if (withError)
+						// Let's get the critic to suggest a6 fix for the tool error
 						suggestion = agent.getReviewer().reviewToolCall(agent.getSteps());
 					else
+						// Reset suggestion, all is fine
 						suggestion = "CONTINUE";
 				}
-			} else { // Agent output something different than a tool call
+			} else { // Agent outputs something different than a tool call
 
+				// Build the step that was outputted
 				try {
 					step = reply.getObject(Step.class);
 					step.actor = getId();
@@ -348,16 +346,30 @@ public class ExecutorModule extends Agent {
 				}
 
 				// Check the result
-				if (agent.getLastStep().status == Status.IN_PROGRESS) {
-					suggestion = "**STRICTLY** proceed with next agent.getSteps(), by calling appropriate tools.";
+				if (agent.getLastStep().status != Status.IN_PROGRESS) { // Agent outputs a "reflection"
+
+					if (agent.getSteps().size() > 1) {
+						Step previous = agent.getSteps().get(agent.getSteps().size() - 2);
+						if (!(previous instanceof ToolCallStep)) {
+							// For two times in a row, we are not calling tools,
+							// let's ask the critic to help
+							if (checkLastStep) {
+								suggestion = agent.getReviewer().reviewConclusions(agent.getSteps());
+								continue;
+							}
+						}
+					}
+
+					// Otherwise, let's be patient.
+					suggestion = "**STRICTLY** if further actions are needed, proceed by calling appropriate tools, otherwise output a final step with status=\"COMPLETED\". "
+							+ "Do not output same step repeatedly.";
+
 				} else if (checkLastStep) { // Configurable, to decide in which component we check
-					// Try to recover errors
+					// Try to recover errors / check if execution is complete
 					suggestion = agent.getReviewer().reviewConclusions(agent.getSteps());
 					if (!suggestion.toLowerCase().contains("continue")) {
 						// forces the conversation to continue
-//						agent.getSteps().remove(agent.getLastStep());
 						agent.getLastStep().status = Status.IN_PROGRESS;
-//						agent.getLastStep().status = null;
 					}
 				}
 			}
@@ -367,8 +379,7 @@ public class ExecutorModule extends Agent {
 		if (agent.getSteps().size() >= MAX_STEPS) {
 			step = new Step.Builder() //
 					.actor(getId()) //
-					.thought("Execution was stopped because it exceeded maximum number of agent.getSteps() ("
-							+ MAX_STEPS + ").") //
+					.thought("Execution was stopped because it exceeded maximum number of steps (" + MAX_STEPS + ").") //
 					.observation("I probably entered some kind of loop.") //
 					.status(Step.Status.ERROR).build();
 			agent.addStep(step);

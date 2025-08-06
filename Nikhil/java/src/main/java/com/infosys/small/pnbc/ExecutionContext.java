@@ -127,7 +127,7 @@ public class ExecutionContext {
 
 			super(Type.DIARY_ENTRY);
 			this.taskTimeCreated = taskTimeCreated;
-			this.taskCustomerNumber = taskTimeCreated;
+			this.taskCustomerNumber = taskCustomerNumber;
 			this.category = category;
 			this.message = message;
 		}

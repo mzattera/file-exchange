@@ -25,6 +25,7 @@ import org.slf4j.MDC;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.infosys.small.core.Agent;
 import com.infosys.small.core.JsonSchema;
 import com.infosys.small.pnbc.ExecutionContext.ApiCallEntry;
@@ -44,7 +45,9 @@ import ch.qos.logback.classic.sift.MDCBasedDiscriminator;
 import ch.qos.logback.classic.sift.SiftingAppender;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.FileAppender;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
 /**
@@ -61,32 +64,28 @@ public class TestMaster extends Agent {
 	public static final List<String> SCENARIOS = List.of(//
 			"scenario-01", //
 			"scenario-02a", //
-			"scenario-02b" //
+			"scenario-02b", //
+			"scenario-03", //
+			"scenario-05" //
 	);
 
 	// # Tests to execute (for each scenario)
-	private static final int NUM_TEST = 1;
+	private static final int NUM_TEST = 3;
 
 	// Parallel execution threads, to speed things up
 	private static final int NUM_THREADS = Math.min(NUM_TEST * SCENARIOS.size(), 15);
 
 	private static final String[] HEADERS = { "Scenario", "Run#", "Model", "Orchestrator Steps", "Total Steps",
-			"Result", "Confidence", "Passed", "Reasoning" };
+			"Passed", "Reasoning" };
 
 	@JsonSchemaDescription("This is a class describing the response the TestMaster returns.")
+	@NoArgsConstructor
+	@AllArgsConstructor
 	public static class Response {
 
 		@JsonProperty(required = true)
 		@JsonPropertyDescription("True if and only if you think the success criteria was matched.")
 		public boolean success;
-
-		public enum Level {
-			VERY_HIGH, HIGH, MEDIUM, LOW, VERY_LOW
-		}
-
-		@JsonProperty(required = true)
-		@JsonPropertyDescription("How confident you are that your assessment about the success criteria is correct.")
-		public @NonNull Level confidenceLevel;
 
 		@JsonProperty(required = true)
 		@JsonPropertyDescription("The rationale about your decision whether the success criteria was met.")
@@ -98,7 +97,7 @@ public class TestMaster extends Agent {
 	public static class TestResult {
 
 		@JsonProperty(required = true)
-		@JsonPropertyDescription("Scenario used fo rthis test.")
+		@JsonPropertyDescription("Scenario used for this test.")
 		private final @NonNull String scenarioId;
 
 		@JsonProperty(required = true)
@@ -113,7 +112,7 @@ public class TestMaster extends Agent {
 		private final @NonNull String model;
 
 		@JsonProperty(required = true)
-		@JsonPropertyDescription("Execution steps performed by the agnt in this run.")
+		@JsonPropertyDescription("Execution steps performed by the agent in this run.")
 		private final @NonNull List<Step> steps;
 
 		@JsonPropertyDescription("Unrecoverable execution error.")
@@ -136,18 +135,23 @@ public class TestMaster extends Agent {
 
 		setModel(model);
 		setTemperature(0d);
-		setResponseFormat(Response.class);
+//		setResponseFormat(Response.class);
 		setPersonality("# Identity\n" //
 				+ "\n" //
-				+ "You are an AI agent, monitoring performances of other agents.\n" //
+				+ "You are an AI agent.  \n" //
+				+ "Your job is to check, based on the provided logs, if **every single point** in the `<criteria>` list has been satisfied by the process.\n" //
 				+ "\n" //
-				+ "You will be provided with a list of steps, inside a <steps> tag that the other agent undertook in order to complete the task assigned to it.\n" //
+				+ "You will receive:\n" //
 				+ "\n" //
-				+ "The format of each step is described by the JSON schema below:\n" //
+				+ "- a list of **log entries** in a `<log>` tag (various types, see schemas below)\n" //
+				+ "- a **success criteria** list in a `<criteria>` tag (the points to check)\n" //
+				+ "- optionally, a list of `<steps>` describing how the agent acted (can be empty)\n" //
 				+ "\n" //
-				+ JsonSchema.getJsonSchema(ToolCallStep.class) + "\n" //
-				+ "You will also be provided with a list of log entries created by the agent, inside a <log> tag.\n" //
-				+ "Log entries have different formats, each is described by one of the below JSON schema.\n" //
+				+ "**You must decide, ONLY based on the evidence in the logs (and steps, if present), if ALL the points in the success criteria have been satisfied.**\n" //
+				+ "\n" //
+				+ "---\n" //
+				+ "\n" //
+				+ "## Log entry types (schema summary)\n" //
 				+ "\n" //
 				+ JsonSchema.getJsonSchema(ApiCallEntry.class) + "\n" //
 				+ JsonSchema.getJsonSchema(DiaryEntry.class) + "\n" //
@@ -156,21 +160,23 @@ public class TestMaster extends Agent {
 				+ JsonSchema.getJsonSchema(EmailEntry.class) + "\n" //
 				+ JsonSchema.getJsonSchema(UploadEntry.class) + "\n" //
 				+ "\n" //
-				+ "Finally, you will be provided with a success criteria, inside a <criteria> tag.\n" //
-				+ "\n" //
-				+ "\n" //
 				+ "# Instructions\n" //
 				+ "\n" //
-				+ "Your task is to carefully read the steps and log entries provided to you and determine if the corresponding success criteria was met.\n" //
-				+ "  * When evaluating success criteria, evaluate each point separately, think though carefully whether that point was actually addressed based only on the evidence you have.\n" //
-				+ "  * When evaluating success criteria, strictly base your results only on the content of the steps and the log. For example, do not infer that a payment was made, rather check if the payment was logged.\n" //
-				+ "  * Your task is not to evaluate if the agent worked properly, rather to check if each and all the points in the success criteria are satisfied.\n" //
-				+ "  * Your task is not to evaluate if the pseudo code was followed diligently by the agent; just check if each and all the points in the success criteria are satisfied.\n" //
-				+ "  * Failure to fulfill a single point in the success criteria, means the whole success criteria were **NOT** met; in this case success **MUST** be false in your output.\n" //
-				+ "  * When outputting your rationale, address each point in the success criteria individually\n" //
-				+ "  * **STRICTLY** Use the below format when outputting your results:\n" //
+				+ "1. **For EACH point in the success criteria**\n" //
+				+ "  a. Look for **direct and explicit evidence** in the log (and, if relevant, in the steps).\n" //
+				+ "  b. **Do NOT guess, do NOT infer**. If a point is not clearly satisfied by the evidence, it must be considered NOT satisfied.\n" //
+				+ "\n" // //
+				+ "2. Output a single JSON array of objects, one for **each** point in the success criteria; each object follows below JSON format:**\n" //
+				+ "\n" // //
+				+ JsonSchema.getJsonSchema(Response.class) + "\n" //
 				+ "\n" //
-				+ JsonSchema.getJsonSchema(Response.class));
+				+ "## Additional notes\n" //
+				+ "\n" //
+				+ "- The `<steps>` tag may be empty. This does not prevent success, as long as the log gives all the evidence needed.\n" //
+				+ "- If the evidence for a criteria is present *either* in the log or in the steps, you can consider the criteria satisfied.\n" //
+				+ "- Never output anything except the JSON response in the required format.\n" //
+				+ "- Do not include meta reasoning about the instructions or about your own reasoning process; focus only on whether the criteria are satisfied.\n" //
+				+ "\n");
 	}
 
 	private final static String INPUT_TEMPLATE = "<steps>\n" //
@@ -200,7 +206,18 @@ public class TestMaster extends Agent {
 		map.put("criteria", JsonSchema.serialize(criteria));
 
 		String prompt = Agent.fillSlots(INPUT_TEMPLATE, map);
-		return complete(prompt).getObject(Response.class);
+
+		List<Response> check = complete(prompt).getObject(new TypeReference<List<Response>>() {
+		});
+
+		StringBuilder sb = new StringBuilder();
+		Response result = new Response(true, "");
+		for (Response r : check) {
+			sb.append(r.success ? "PASSED: " : "NOT PASSED: ").append(r.rationale).append('\n');
+			result.success &= r.success;
+		}
+		result.rationale = sb.toString();
+		return result;
 	}
 
 	private static int countNestedSteps(List<? extends Step> steps) {
@@ -232,6 +249,10 @@ public class TestMaster extends Agent {
 			Orchestrator agent = new Orchestrator();
 			TestMaster tester = new TestMaster();
 
+//			System.out.println(tester.getPersonality());
+//			if (1 == 1)
+//				System.exit(0);
+
 			model = agent.getModel();
 			String successCriteria = ScenarioComponent.getInstance().getSuccessCriteria(scenarioId);
 			MDC.put("runId", runId); // Log per thread
@@ -259,7 +280,7 @@ public class TestMaster extends Agent {
 					JsonSchema.JSON_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(agent.getSteps()));
 
 			Response resp = tester.check(ctx, new ArrayList<>(), successCriteria);
-			System.err.println(runId + ": " + resp.success + " " + resp.confidenceLevel);
+			System.err.println(runId + ": " + resp.success);
 			return new TestResult(scenarioId, runId, resp, agent.getModel(), agent.getSteps(), null);
 		} catch (Exception e) {
 			LOG.error(e.getMessage(), e);
@@ -369,12 +390,10 @@ public class TestMaster extends Agent {
 						}
 
 						// Output execution statistics
-						boolean succeeded = (resp.success && ((resp.confidenceLevel == Response.Level.VERY_HIGH)
-								|| (resp.confidenceLevel == Response.Level.HIGH)));
 						csvPrinter.printRecord(scenarioId, runId, model, steps.size() - 2, countNestedSteps(steps),
-								resp.success, resp.confidenceLevel, succeeded, resp.rationale);
+								resp.success, resp.rationale);
 						csvPrinter.flush();
-						if (succeeded)
+						if (resp.success)
 							++successes;
 						else
 							++failures;

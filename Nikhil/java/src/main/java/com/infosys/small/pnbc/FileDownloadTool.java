@@ -85,7 +85,7 @@ public class FileDownloadTool extends Api {
 	public FileDownloadTool() {
 
 		super("fileDownload", //
-				"This tool allows downloading files like Proforma Document, Power of Attorney document (PoA) and Probate Certificate (SKS), if available.",
+				"This tool provides access to files stored on backend system such as Proforma Document, Power of Attorney document (PoA), and Probate Certificate (SKS).",
 				Parameters.class);
 	}
 }

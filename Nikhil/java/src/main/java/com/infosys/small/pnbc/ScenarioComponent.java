@@ -75,7 +75,7 @@ public class ScenarioComponent {
 
 	public static ScenarioComponent getInstance() throws IOException {
 		return new ScenarioComponent(
-				new File("D:\\Users\\mzatt\\Projects\\DELETEME PnBC\\pnbc-services\\src\\main\\resources\\scenarios"));
+				new File("D:\\Users\\mzatt\\Projects\\DELETEME PnBC\\small-world\\src\\main\\resources\\scenarios"));
 	}
 
 	public ScenarioComponent(@NonNull File folder) throws IOException {
@@ -89,7 +89,7 @@ public class ScenarioComponent {
 			try {
 				scenarios.addAll(objectMapper.readValue(file, new TypeReference<List<Scenario>>() {
 				}));
-			} catch (IOException e) {
+			} catch (Exception e) {
 				LOG.error("Error parsing scenario " + file.getName(), e);
 				throw e;
 			}

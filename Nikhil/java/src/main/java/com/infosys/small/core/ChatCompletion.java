@@ -1,6 +1,7 @@
 package com.infosys.small.core;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -85,6 +86,19 @@ public class ChatCompletion {
 	 *                                 content.
 	 */
 	public <T> T getObject(Class<T> c) throws JsonProcessingException {
+		return JsonSchema.deserialize(getText(), c);
+	}
+
+	/**
+	 * 
+	 * @return The content of this message as an instance of given class. This
+	 *         assumes {@link #getText()} will return a properly formatted JSON
+	 *         representation of the object.
+	 * 
+	 * @throws JsonProcessingException If an error occurs while parsing the message
+	 *                                 content.
+	 */
+	public <T> T getObject(TypeReference<T> c) throws JsonProcessingException {
 		return JsonSchema.deserialize(getText(), c);
 	}
 }

@@ -43,7 +43,7 @@ public class InspectBillTool extends LabAgent {
 		public String attachmentFileName;
 	}
 
-	public static class ResponseFormat {
+	public static class Response {
 
 		@JsonProperty(required = true)
 		@JsonPropertyDescription("The action that must be performed for the provided attachment.")
@@ -153,8 +153,8 @@ public class InspectBillTool extends LabAgent {
 			+ "If accordingly to above logic, the attachment must be paid, then if the attachment text indicates that the bill has **NOT** been paid, then the \"action\" field in your output **MUST** be to issue a payment to the person or entity who created the invoice, as specified in the attachment.\n"
 			+ "If accordingly to above logic, the attachment must NOT be paid, then the \"action\" field in your output **MUST** be to NOT issue a payment to the person or entity who created the invoice, as specified in the attachment.\n"
 
-			+ "  * Output your response as JSON, in the format described by the below JSON schema in <output_schema> tag.\n" //
-			+ "\n<output_schema>\n" + JsonSchema.getJsonSchema(ResponseFormat.class) + "\n</output_schema>\n";
+			+ "**STRICTLY AND ALWAYS** Output your final \"observation\" as JSON, in the format described by the below JSON schema in <output_schema> tag.\n" //
+			+ "\n<output_schema>\n" + JsonSchema.getJsonSchema(Response.class) + "\n</output_schema>\n";
 
 	public InspectBillTool() {
 
@@ -162,7 +162,7 @@ public class InspectBillTool extends LabAgent {
 				"This tool inspects one task attachment that is supposed to be a bill/invoice determining whether it needs to be paid and corresponding payment details. "
 						+ "**STRICTLY** Do not call this tool on attachments you know are not bill/invoices or to determine the type of an attachment. "
 						+ "Format of the returned result is described by this JSON Schema:\n"
-						+ JsonSchema.getJsonSchema(ResponseFormat.class),
+						+ JsonSchema.getJsonSchema(Response.class),
 				List.of( //
 						new Peace.GetRelatedPersonsApi(), //
 						new Peace.GetTaskContentApi(), //
@@ -173,6 +173,9 @@ public class InspectBillTool extends LabAgent {
 		// We want this to have clear parameters definition when invoked and we do not
 		// need a command, as we have it already.
 		setJsonParameters(Parameters.class);
+
+		// Cannot do as this output steps
+//		setResponseFormat(ResponseFormat.class);
 
 		setContext(
 				"  * Documents you handle are in Danish, this means sometime you have to translate tool calls parameters. For example, \"Customer Number\" is sometimes indicated as \"afdøde CPR\" or \"CPR\" in documents.\n"
@@ -210,12 +213,21 @@ public class InspectBillTool extends LabAgent {
 		map.put("attachmentFileName", attachmentFileName);
 
 		ExecutionContext ctx = getLabAgent().getExecutionContext();
-		Step result = execute(ctx, Agent.fillSlots(COMMAND, map));
-		switch (result.status) {
+		Step lastStep = execute(ctx, Agent.fillSlots(COMMAND, map));
+
+		switch (lastStep.status) {
 		case ERROR:
-			return new ToolCallResult(call, "ERROR: " + result.observation);
+			return new ToolCallResult(call, "ERROR: " + lastStep.observation);
 		default:
-			return new ToolCallResult(call, result.observation);
+			Response result = null;
+			try {
+				result = JsonSchema.deserialize(lastStep.observation, Response.class);
+			} catch (Exception e) {
+				// The agent did not return proper JSON in observation.....
+				return new ToolCallResult(call,
+						"ERROR: I encountered an error; it might be temporary and fixed if you call me again with same parameters. Do not try multiple calls more than 3 times.");
+			}
+			return new ToolCallResult(call, JsonSchema.serialize(result));
 		}
 	}
 }

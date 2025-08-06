@@ -1,0 +1,130 @@
+[
+   {
+      "id":"scenario-03",
+      "description":"No SKS - Funeral Bill, rejected because not enough money Available on day of death (accordingly to Proforma Document)",
+	  "success_criteria":"* The task with Time Created=\"4/16/2025, 2:31 PM\" and Customer Number=\"111111111\" has been assigned to Operator 42; no other tasks have been assigned to any operator.\n* Data for new person Gini Potter has been registered.\n* The diary has been updated with an entry with category=\"Proforma's Balance\" and an amount of 18.185,80 DKK (excluding interest).\n* The diary has been updated with an entry with category=\"Rejected to pay bill to\" mentioning not enough money to pay bill 23.955,00 DKK from Begravelse Danmark with invoice number 2603737501.\n* No payments have been issued or attempted.\n* An email has been sent to Gini Potter (check email text), confirming that the bill has not been paid because there is not enough money to pay it, and that SKS document is missing and must be provided.\n* An entry has been created in the diary with category=\"Info email sent\" confirming that the bill has not been paid, signed with the Operator ID.\n* An entry has been created in the diary with category=\"Sent email asking for SKS\" with email details about the email requesting SKS, being sent and signed with the Operator ID.\n* No other emails have been sent.\n* The task with Time Created=\"4/16/2025, 2:31 PM\" and Customer Number=\"111111111\" has been closed.\n* No documents have been uploaded.\n* Only the diary entries mentioned above have been created.\n",
+      "tool_calls":[
+         {
+            "tool_id":"getUnassignedTasks",
+            "input":{               
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"[{\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:27 PM\", \"Time Created\": \"4/16/2025, 2:31 PM\", \"Customer Number\": \"111111111\", \"Customer Name\": \"Boet Efter Ema Emav\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:26 PM\", \"Time Created\": \"4/16/2025, 3:26 PM\", \"Customer Number\": \"111444445\", \"Customer Name\": \"Boet Efter Tonny Lewis\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:23 PM\", \"Time Created\": \"4/16/2025, 3:23 PM\", \"Customer Number\": \"1187911145\", \"Customer Name\": \"Boet Efter Liam Ray\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:06 PM\", \"Time Created\": \"4/16/2025, 3:06 PM\", \"Customer Number\": \"0557911145\", \"Customer Name\": \"Boet Efter Ava Kim\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:04 PM\", \"Time Created\": \"4/16/2025, 3:04 PM\", \"Customer Number\": \"0557922225\", \"Customer Name\": \"Boet Efter Noah Wu\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:01 PM\", \"Time Created\": \"4/16/2025, 3:01 PM\", \"Customer Number\": \"0433565669\", \"Customer Name\": \"Boet Efter Mia Roe\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 3:00 PM\", \"Time Created\": \"4/16/2025, 3:00 PM\", \"Customer Number\": \"35454343534534\", \"Customer Name\": \"Boet Efter Ella Tai\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:36 PM\", \"Time Created\": \"4/16/2025, 2:36 PM\", \"Customer Number\": \"2222222222\", \"Customer Name\": \"Boet Efter Ethan Poe\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:36 PM\", \"Time Created\": \"4/16/2025, 2:36 PM\", \"Customer Number\": \"2222222589\", \"Customer Name\": \"Boet Efter Jack Lin\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:34 PM\", \"Time Created\": \"4/16/2025, 2:34 PM\", \"Customer Number\": \"3332222222\", \"Customer Name\": \"Boet Efter Lily Sue\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:33 PM\", \"Time Created\": \"4/16/2025, 2:33 PM\", \"Customer Number\": \"2536458577\", \"Customer Name\": \"Boet Efter Zoe Kai\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:33 PM\", \"Time Created\": \"4/16/2025, 2:33 PM\", \"Customer Number\": \"6666666666\", \"Customer Name\": \"Boet Efter Ryan Lee\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:31 PM\", \"Time Created\": \"4/16/2025, 2:32 PM\", \"Customer Number\": \"5696365566\", \"Customer Name\": \"OWEN MAX\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:31 PM\", \"Time Created\": \"4/16/2025, 2:32 PM\", \"Customer Number\": \"7777777777\", \"Customer Name\": \"CHLOE NG\"}, {\"Step Name\": \"Handle Account 1\", \"Due Date\": \"4/23/2025, 2:31 PM\", \"Time Created\": \"4/16/2025, 2:32 PM\", \"Customer Number\": \"8855225588\", \"Customer Name\": \"DYLAN FAY\"}]"
+               }
+            ]
+         },
+         {
+            "tool_id":"getTaskContent",
+            "input":{
+               "timeCreated":"4/16/2025, 2:31 PM",
+               "customerNumber":"111111111"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"****************** INFORMATIONER OM AFDØDE ******************:\nAFDØDES FORNAVN OG EVT. MELLEMNAVN:     Harry\nAFDØDES EFTERNAVN:     Potter\nAFDØDES CPR-NR:        1234567891\n****************** DINE OPLYSNINGER ******************:\nVælg her, om du henvender dig som arving/andre eller advokat/bobestyrer: Arving / Andre\nEr du ægtefælle?: Nej\nDIT FORNAVN OG EVT. MELLEMNAVN:     Gini\nDIT EFTERNAVN:     Potter\nDIT CPR-NR.:       1234567891\nDIN E-MAIL:        ginipotter@gmail.com\nDIT TELEFON NR:    88818888\n****************** SKIFTERETSATTEST ******************:\nEr Skifteretsattest udstedt af Skifteretten?: Nej\n****************** KONTI OG BETALINGER ******************:\n****************** INVESTERINGER ******************:\n****************** PENSION ******************:\nFORESPØRGSLER OM PENSION:\n****************** KRAV ******************:\n****************** ANDRE FORSPØRGSLER ******************:\nANDRE FORSPØRGSLER: Vedhæftet fremsendes faktura for min fars bisættelse fra Begravelse Danmark til betaling af boet.\nJeg bekræfter, at jeg har indsendt den korrekte ordre ovenfor og har vedhæftet de nødvendige dokumenter til udførelse.: Ja\n\nAttachments: \"image.jpg\"."
+               }
+            ]
+         },
+         {
+            "tool_id":"getFileContent",
+            "input":{
+               "fileName":"image.jpg"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"Hilda Potter  \nHubbytown 10  \n0000 Hogwarts  \n\nDeres bedemand  \nRon Weasly  \nAdresse / Tlfnr.: Hummington 15, Bubbletown  \n\nVedr. Afdøde   Harry Potter  \n\nBegravelse Danmarks ydelser  \nAftalepris momspligtig 1   3.636,00  909,00  4.545,00  \nAftalepris ikke momspligtig 1   12.445,00   12.445,00  \nHvid kiste  \nUrne rør med Skib hav  \nLevering af kiste og ilægning  \nRustvognskørsel  \nRustvognskørsel til kremering/begravelse  \nDyne og pude  \nHjemmebesøg og samtale  \nHonorar: Rådgivning, planlægning og admi  \nHygiejne/miljøomkostning  \nSkjorte/ligklaede 1   159,20  39,80  199,00  \nBlomsterbestilling  \n\nYdelser fra andre leverandører  \nKistepynt 1   3.580,00  895,00  4.475,00  \n\nUdgifter til offentlige leverandører  \nKrematorie 1   3.341,00   3.341,00  \n\nSamlet beløb:       23.161,20   25.005,00  \nHerfra trækkes  \nØvrige off.tilskud 1   -1.050,00   -1.050,00  \n\nI alt DKK   23.955,00  \n\nHeraf Momsbeløb 1.843,80  \n\nBetalingsbetingelse: 5 dage, dog senest den 20-04-25.  \nBeløbet kan overføres via netbank ved at anvende følgende kodelinje:  \n+71< 000260373750108 +85520652<  \n\nBegravelse Danmark  \nFakturanr. 2603737501  \nSide 1  \nDato 15-04-2025  \nDebitorr. 2603-73750  \nIBAN DK4050330001097019  \nSWIFT code JYBADKKK  "
+               }
+            ]
+         },
+         {
+            "tool_id":"getRelatedPersons",
+            "input":{
+               "customerNumber":"111111111"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"[{\"Customer Number\":\"27743748748\",\"Relation To Estate\":\"Spouse\",\"Name\":\"Hilda Potter\",\"Identification Completed\":\"None\",\"Power Of Attorney Type\":\"None\",\"Address\":\"Happy City\",\"Email\":\"\",\"Phone Number\":\"\"},{\"Customer Number\":\"48484849988\",\"Relation To Estate\":\"Joint\",\"Name\":\"Ron Weasly\",\"Identification Completed\":\"None\",\"Power Of Attorney Type\":\"None\",\"Address\":\"Hummingst\",\"Email\":\"\",\"Phone Number\":\"\"},{\"Customer Number\":\"23436477477\",\"Relation To Estate\":\"Other\",\"Name\":\"Lucy Happy\",\"Identification Completed\":\"None\",\"Power Of Attorney Type\":\"None\",\"Address\":\"Hissinghou\",\"Email\":\"\",\"Phone Number\":\"\"}]"
+		        }
+		     ]
+		  },
+         {
+            "tool_id":"getDiaryEntries",
+            "input":{
+               "timeCreated":"4/16/2025, 2:31 PM",
+               "customerNumber":"111111111"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"NEXT\n11-04-2025 - HP0000/HARRY Call\n- Daughter and spouse called for spouse proforma.\n- Sendt to daughter after talk with spouse.\n\n10-04-2025 - HP0000/HARRY\nWhen we recieve accept from spouse send her proforma to sks Holbæk\n\nCALL\n10-04-2025 - HP0000/HARRY\nTalt med datter    +4511111111\nSkifteretten i Holbæk\n"
+               }
+            ]
+         },
+		 {
+		     "tool_id": "getAccounts",
+		     "input": {
+		         "customerNumber": "111111111"
+		     },
+		     "output": [
+		         {
+		             "type": "text",
+		             "value": "**Summary of accounts**\n\n| Account number     | Currency | Product       | Card | JO | Balance   | Avail.bal. |\n|--------------------|----------|----------------|------|----|-----------|-------------|\n| 4467898765    | DKK      | Danske Konto   |      | N  | 590.706,60 | 590.706,60        |\n\n\nJO: N=Personal Account / J=Half-Joint account"
+		         }
+		     ]
+		 },
+		 {
+		     "tool_id": "getTransactions",
+		     "input": {
+		         "accountNumber": "4467898765"
+		     },
+		     "output": [
+		         {
+		             "type": "text",
+		             "value": "No recent transactions recorded in this account."
+		         }
+		     ]
+		 },		 
+         {
+            "tool_id":"getSKS",
+            "input":{
+               "customerNumber":"111111111"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"No SKS was provided for customer number 111111111."
+               }
+            ]
+         },
+         {
+            "tool_id":"getPoA",
+            "input":{
+               "customerNumber":"111111111"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"No Power of Attorney document was provided for customer number 111111111."
+               }
+            ]
+         },
+         {
+            "tool_id":"getProformaDocument",
+            "input":{
+               "customerNumber":"111111111"
+            },
+            "output":[
+               {
+                  "type":"text",
+                  "value":"Boet Efter Harry Potter\nHubbytown 10\n0000 Hogwarts\n\nCPR. nr.:     1234567891\n\nPr. 02.04.2025\n\n2627363636666        OPBEVARINGSDEPOT\nDKK27363636666       Danske Bank     STK\n\n                                  Saldo      Kurs       Kursværdi\n                                513,00   227,4000   116.656,20\n                ---------------------------------------------------------\n                                                116.656,20-\n                ---------------------------------------------------------\n\nDanske Bank\nPension & Bobehandling\nBernstorffsgade 40\n1577 København V\nbobehandling@danskebank.dk\nTelefon 45 13 93 33\nwww.danskebank.dk/Bobehandling\n\nBoet Efter Harry Potter\nHubbytown 10\n0000 Hogwarts\n\nCPR. nr.:   1234567891\nOpgørelse pr. 02.04.2025\n\nReg.  Kontonr.        Produkt             Fælles   Saldo excl. renter   Optjente renter\n0000  6363666688888   Danske Indlån                 737,46               0,93\n0000  7377777726777   Danske Konto         Ja     15.704,32              6,38\n0000  2662722766666   Danske Konto         Ja      1.744,02             -5,62\n\n        --------------------------------------------------------------\n                             18.185,80             1,69\n        --------------------------------------------------------------\n\nVi gør opmærksom på, at banken modregner i indlånskonti og eventuelle pensionskonti, der indgår i boet.\n\nDer kan forekomme udbetalinger fra boets konti i perioden op til og frem til det tidspunkt, hvor banken har modtaget oplysninger om dødsfaldet, da banken først på dette tidspunkt har kunnet spærre konti.\n"
+               }
+            ]
+         }
+      ]
+   }
+]

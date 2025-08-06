@@ -22,29 +22,29 @@ public class Orchestrator extends LabAgent {
 		), true);
 
 		setContext(
-				"  * Documents you handle are in Danish, this means sometime you have to translate tool calls parameters. For example, \"Customer Number\" is sometimes indicated as \"afdøde CPR\" or \"CPR\" in documents.\n"
-						+ "  * Probate Certificate is a document that lists heirs for one estate; it is sometime indicated as \"SKS\".\n"
-						+ "  * Power of Attorney document (PoA) is a document that define people's legal rights over the estate's asset. It is sometime indicated as \"PoA\".\n"
-						+ "  * Proforma Document is a document containing the amount of cash available on estate's account at the time of their death.\n"
-						+ "  * Probate Court (Skifteretten) Notification Letter is an official letter from Skifteretten informing the heirs about the opening of an estate after a person’s death; this is **NOT** same as SKS, even it might notify heirs that SKS has been issued.\n"
+				"  * Documents you handle are in Danish, this means sometime you have to translate tool calls parameters. For example, \"Customer Number\" is sometimes indicated as \"afdøde CPR\" or \"CPR\" in documents.\n" //
+						+ "  * Probate Certificate is a document that lists heirs for one estate; it is sometime indicated as \"SKS\".\n" //
+						+ "  * Power of Attorney document (PoA) is a document that define people's legal rights over the estate's asset. It is sometime indicated as \"PoA\".\n" //
+						+ "  * Proforma Document is a document containing the amount of cash available on estate's account at the time of their death.\n" //
+						+ "  * Probate Court (Skifteretten) Notification Letter is an official letter from Skifteretten informing the heirs about the opening of an estate after a person’s death; this is **NOT** same as SKS, even it might notify heirs that SKS has been issued.\n" //
 
 //						+ "  * Sometimes, the bills you are provided might contain the indication they have been paid, this means one person related to the estate paid the bill and they are requesting you to reimburse them of the amount. "
-//						+ "If this is the case, the payment needs to be done to the person sending the request. In all other cases (where the bill is not marked as paid), the bill must be paid the entity who created it, as indicated in the bill itself.\n"
+//						+ "If this is the case, the payment needs to be done to the person sending the request. In all other cases (where the bill is not marked as paid), the bill must be paid the entity who created it, as indicated in the bill itself.\n" //
 
-						+ "  * To indicate time stamps, always use \"mm/dd/yyyy, hh:mm AM/PM\" format (e.g. \"4/16/2025, 2:31 PM\").\n"
-						+ "  * For amounts, always use the format NNN,NNN.NN CCC (e.g. \"2,454.33 DKK\").\n"
+						+ "  * To indicate time stamps, always use \"mm/dd/yyyy, hh:mm AM/PM\" format (e.g. \"4/16/2025, 2:31 PM\").\n" //
+						+ "  * For amounts, always use the format NNN,NNN.NN CCC (e.g. \"2,454.33 DKK\").\n" //
 
 						+ "  * Persons data are described by this JSON schema: "
-						+ JsonSchema.getJsonSchema(Peace.Person.class) + "\n"
+						+ JsonSchema.getJsonSchema(Peace.Person.class) + "\n" //
 						+ "  * Persons are uniquely identified by their Customer Number, sometimes also referred as CPR. **STRICTLY** always communicate Customer Number to any tool that needs to act on persons/clients; indicate it as Customer Number and not CPR. "
-						+ "Never identify a person only providing their name or email.\n"
+						+ "Never identify a person only providing their name or email.\n" //
 
-						+ "  * Tasks are uniquely identified by the combination of their \"Customer Number\" and \"Time Created\" fields. **STRICTLY** always provide these fields if a tool needs to act on a specific task\n"
-						+ "  * Payment tasks are identified by having Step Name=\"Handle Account 1\".\n"
+						+ "  * Tasks are uniquely identified by the combination of their \"Customer Number\" and \"Time Created\" fields. **STRICTLY** always provide these fields if a tool needs to act on a specific task\n" //
+						+ "  * Payment tasks are identified by having Step Name=\"Handle Account 1\".\n" //
 
-						+ "  * When you need to identify yourself as an operator (e.g. when managing tasks), use Operator ID == 42.\n"
+						+ "  * When you need to identify yourself as an operator (e.g. when managing tasks), use Operator ID == 42.\n" //
 
-						+ "  * Accounts can be personal or half-joint. This is indicated by their \"JO\" field: JO==N for Personal Accounts and JO==J for Half-Joint accounts.\n"
+						+ "  * Accounts can be personal or half-joint. This is indicated by their \"JO\" field: JO==N for Personal Accounts and JO==J for Half-Joint accounts.\n" //
 
 						// TODO try to save calls by using data in steps
 						+ "  * Be mindful when calling tools, since each tool has access only to specific capabilities and data.\n");
@@ -57,96 +57,98 @@ public class Orchestrator extends LabAgent {
 	 * @throws JsonProcessingException
 	 */
 	public Step execute(ExecutionContext ctx) throws JsonProcessingException {
-		return execute(ctx, "Run the below process described in pseudo-code inside <process> tag.\n" //
-				+ "\n<process>\n" //
-				+ "Check for any unassigned payment task (Step Name=\"Handle Account 1\") and assign the oldest created payment task to you.\n" //
+		return execute(ctx, "Run the following process described in <process>:\n" //
 				+ "\n" //
-				+ "Assign to you any unassigned payment task (Step Name=\"Handle Account 1\") for the same estate (Client Number)." //
+				+ "<process>\n" //
+				+ "1. Assign to yourself (Operator ID=42) the oldest unassigned payment task with Step Name \"Handle Account 1\". This is the \"main task\".\n" //
+				+ "2. Assign to yourself any other unassigned payment task with Step Name \"Handle Account 1\" for the same Client Number as the main task.\n" //
 				+ "\n" //
-
-				+ "Read content of attachments for tasks assigned to you to verify if the Probate Certificate (SKS) or the Power of Attorney (PoA) documents are attached."
-				+ "IF SKS or PoA are attached, THEN {.\n" //
-				+ "	Upload attached Probate Certificate (SKS) and Power of Attorney (PoA) documents, when provided.\n" //
-				+ "	IF SKS was uploaded, THEN create an entry in the task diary for the task where SKS was attached with category \"SKS registered\" mentioning that Probate Certificate was uploaded.\n" //
-				+ "	IF PoA was uploaded, THEN create an entry in the task diary for the task where PoA was attached with category \"PoA uploaded in CF\" mentioning that Power of Attorney document was uploaded.\n" //
-				+ "	Process the attached Probate Certificate (SKS) and Power of Attorney (PoA) documents to perform any required update of client data; "
-				+ "IF this resulted in estate's account being unblocked, THEN create an entry in the task diary for the task where PoA was attached with category \"Created netbank to CPR\" mentioning that accounts for given estate have been unblocked.\n" //
-				+ "}\n" // IF SKS/PoA provided
-
-				+ "If Proforma Document is not in any attachment, try to download it; IF it is available  THEN {\n" //
+				+ "3. For each task assigned to you (\"current task\"):\n" //
 				+ "\n" //
-				+ "		IF none of the diaries associated to tasks assigned to you mentions the available balance in the Proforma document, THEN {\n" //
-				+ "			Write in diary that Proforma balance is available in AHK and record the available balance,\n" //
-				+ "			as provided by the Proforma Document. Use category = \"Proforma's Balance\" to create the entry in the diary.\n" //
-				+ "		If you do not know the Proforma balance, do **NOT** update the diary.\n" //
-				+ "		}\n" //
-				+ "} ELSE { \n" //
-				+ "		The Proforma Document is not available, do **NOT** update the diary.\n" //
-				+ "	}\n" //
+				+ "    a. Identify **all persons related to the estate**, including:\n" //
+				+ "        - All persons currently registered as related to the estate in the system\n" //
+				+ "        - The creator of the task (even if not yet registered as related)\n" //
+				+ "    b. For each identified person:\n" //
+				+ "        - If the person is **not present** in the system, create a new related person record using all available data (name, address, email, phone, etc.).\n" //
+				+ "        - Compare the person’s data from all sources (task content, attachments, SKS, PoA) with their system record. Ignore \"Power of Attorney Type\" and \"Identification Completed\" fields.\n" //
+				+ "        - If and only if any data (except the above) is missing or outdated, update the record for that person.\n" //
+				+ "        - Ignore the deceased person for all these checks and updates.\n" //
+				+ "    c. For each attachment in the task:\n" //
+				+ "        i. Determine the document type (Probate Certificate, Power of Attorney, Probate Court Notification, ID, Bill/Invoice, Proforma Document, Other).\n" //
 				+ "\n" //
-
-				+ "FOR EACH task assigned to you {\n" //
+				+ "        ii. If the attachment is an ID document for a person, follow these steps **exactly in this order**:\n" //
+				+ "            A. **Check if \"Identification Completed\" for the person is \"OK – Customer\":**\n" //
+				+ "                - If YES, do **NOT** upload the ID. Stop here.\n" //
+				+ "                - If NO, continue.\n" //
+				+ "            B. **Check if the ID document has an expiration date:**\n" //
+				+ "                - If NO expiration date is present, do **NOT** upload the ID. Stop here.\n" //
+				+ "                - If an expiration date exists, continue.\n" //
+				+ "            C. **Search the diary entries of ALL your assigned tasks for any note or instruction stating that the ID for this person should NOT be uploaded:**\n" //
+				+ "                - If ANY diary entry in ANY assigned task says not to upload the ID, do **NOT** upload the ID. Stop here.\n" //
+				+ "                - If NO such diary entry exists, proceed to the next step.\n" //
+				+ "            D. **Only if ALL above checks are passed (none of the previous \"stop here\" conditions are met), upload the ID document.**\n" //
+				+ "        **You MUST strictly follow **all** these steps IN ORDER. You MUST NOT upload the ID unless all previous checks are performed and allow it.**\n" //
 				+ "\n" //
-				+ "Meticulously compare any information about the person who created the task, as described in task contents and its attachments, "
-				+ "with the data in the system about people related to the estate. In this step, **STRICTLY** ignore relationship to estate, power of attorney and identification fields.\n" //
-				+ "IF AND ONLY IF you find any data that is missing or that needs to be updated (considering above exceptions), THEN update the record for the related person, "
-				+ "ELSE do not make any attempt to write, confirm, or update the person's data.\n" //
+				+ "        iii. For Probate Certificate (SKS): upload and process to perform all required updates (including \"Relation To Estate\" for any new heir),\n" //
+				+ "and log an entry **only** in the diary of the current task (category = \"SKS registered\").\n" //
+				+ "        iv. For Power of Attorney (PoA): upload and process, updating only \"Power Of Attorney Type\", \"Identification Completed,\" and \"Relation To Estate\"\n" //
+				+ "**for the recipient(s)** of power, **not the grantor(s)**. Log an entry **only** in the diary of the current task (category = \"PoA uploaded in CF\").\n" //
+				+ "        v. If the SKS or PoA processing results in estate accounts being unblocked, log an entry only in the diary for the current task (category = \"Created netbank to CPR\").\n" //
+				+ "        vi. For Proforma Document: upload the document.\n" //			
 				+ "\n" //
-				+ "	FOR EACH single attachment of the task {\n" //
+				+ "4. **Before processing any bill or invoice for payment or reimbursement:**\n" //
+				+ "    a. **Attempt to download the Proforma Document from backend systems and extract the Proforma balance.**\n" //
+				+ "        - If Proforma Document is available, extract and record the Proforma balance **only** in diary for **main** task  (category = \"Proforma's Balance\").\n" //
+				+ "        - If not available, search in diary entries of your tasks for the latest Proforma balance.\n" //
+				+ "    b. **The Proforma balance is a strict payment ceiling:**  \n" //
+				+ "       - **If a Proforma balance is known, you must NEVER pay or reimburse any bill where the bill's total amount (or the reimbursement amount) exceeds the Proforma balance.**\n" //
+				+ "       - If the Proforma balance is not known, this restriction does not apply and you may proceed.\n" //
 				+ "\n" //
-				+ "		Inspect the content of the task and the attachment to determine whether the attachment is a bill that needs to be paid or reimbursed and corresponding payment details. " //
-				+ "**STRICTLY** follow instructions contained in payment details about how to perform the payment (e.g. from and to accounts to use for the payment).\n" //
+				+ "5. **For each attachment that is a bill/invoice or Probate Court Notification Letter:**\n" //
+				+ "    a. Extract all payment details and instructions.\n" //
+				+ "    b. **If the payment is requested:**  \n" //
+				+ "        i. First, check diary for the task where the attachment comes from: if the bill is already recorded as paid, do not pay/reimburse it.\n" //
+				+ "        ii. Then, check all estate account transactions: if a payment matching the bill exists, do not pay/reimburse it.\n" //
+				+ "        iii. **Next, strictly check the Proforma balance:**\n" //
+				+ "            - **If the Proforma balance is known, and the bill amount exceeds the Proforma balance, do NOT pay or reimburse the bill, even if there is enough cash. "
+				+ "            - If the Proforma balance is not known, proceed to the next check.\n" //
+				+ "        iv. Check cash availability (full personal account balances + half of half-joint account balances, regardless if accounts are frozen).\n" //
+				+ "            - If not enough cash is available, do not pay/reimburse the bill; log the rejection.\n" //
+				+ "        v. If all above checks are passed, instruct the Operations Officer to pay or reimburse as per **ALL the extracted payment details and instructions**.\n" //
+				+ "        vi. Log the payment **only** in the diary for the task where the attachment is cominig from (category = \"Paid bill\" or \"Transferred udlaeg\"), ALWAYS include all the payment details above.\n" //
+				+ "            **Never omit issuer, invoice number, invoice recipient, beneficiary, amount, account(s), payment reference, or any available field. If a field is missing, state “Not provided”.**\n" //
+				+ "        vii. When you process a bill/invoice and do not pay/reimburse it for any reason, always create an entry **only** in the diary for the task where the attachment is cominig from (category = \"Rejected to pay bill to\") explaining the reason.\n" //
+				+"              When logging the rejection, include all the payment details listed above, plus the reason for rejection. Never omit issuer, invoice number, beneficiary, amount, or account(s).\n" //
 				+ "\n" //
-				+ "		IF the attachment is a bill that must be paid or reimbursed, THEN {\n" //
-				+ "				Check in the task diary: IF the bill is already being paid, THEN {\n" //
-				+ "					The bill must not be paid nor reimbursed.\n" //
-				+ "				} ELSE {\n" //
-				+ "					Check transaction in estate accounts for any transaction which amount could indicate the bill has already been paid or reimbursed. " //
-				+ "Use only transaction data to determine if the bill has already been paid or reimbursed.\n" //
-				+ "					IF you find a matching amount, THEN {\n" //
-				+ "						The bill must not be paid nor reimbursed.\n" //
-				+ "					} ELSE {\n" //
-				+ "					\n" //
-				+ "						Consider if enough cash is available to pay/reimburse the bill; you must consider the entire sum available \n" //
-				+ "						in each personal account, plus half of the sum available in each half-joined account, regardless whether the account are frozen."
-				+ "                     Also, subtract any amount you paid as result of running this process.\n" //
-				+ "						\n" //
-				+ "						IF there is enough cash left to pay the bill, THEN {\n" //
-				+ "							Instruct the Operations Officer to pay/reimburse the bill; provided estate name, their customer number,\n" //
-				+ "							account number(s) to use for the payments (as instructed in task), amount to be paid, and the reason for the payment\n" //
-				+ "							(as provided in the bill). "
-				+ "**STRICTLY** never ask Operator Officer which account to use but follow indications in the task, as resulting from inspeciton, if provided. " //
-				+ "Assume the payment is done if they tell you to proceed.\n" //
-				+ "							" //
-				+ "							Update the diary with the payment details; create an entry with payment details, including amount, invoice number, issuer, and beneficiary (who can be different from the issuer in case of a reimbursement). "
-				+ "IF you instructed the Operations Officer to perform a reimbursement, THEN use category \"Transferred from\", ELSE use category = \"Paid bill\" for the entry. Create a separate diary entry for each bill.\n" //
-				+ "						}\n" //
-				+ "					}\n" //
-				+ "				}\n" //
-				+ "		} ELSE {\n" //
-				+ "			Do not pay anything for this attachment.\n" //
-				+ "		}\n" //
-				+ "	}\n" // For each attachment in the task
-				+ "	\n" //
-				+ "Send an email to the person who created the task; specify their Customer Number; (**DO NOT** send the email using the estate Customer Number). "
-				+ "In the message, enter details about all of the bills that were paid, " //
-				+ "their individual and total amounts and the accounts they were paid from and into (if available). " //
-				+ "In the mail also list bills that were not paid and explain why they were not paid. "
-				+ "IF the Probate Certificate (SKS) for the estate is not available, THEN add a request to send the SKS to the email. "
-				+ "IF estate's account were unblocked, mention that access to online bank has been granted in the email. "
-				+ "Send only one email per task.\n" //
+				+ "6. After processing all tasks and attachments, send one final recap email to the person who created the main task (not the estate); when preparing this email:\n" //
+				+"    - List all bills that were paid, and for each, include **all the following payment details (when available):**\n" //
+				+ "        - Invoice/bill issuer (name and address)\n" //
+				+ "        - Invoice recipient\n" //
+				+ "        - Invoice number and date\n" //
+				+ "        - Amount and currency\n" //
+				+ "        - Account(s) paid from and to\n" //
+				+ "        - Beneficiary (name and address)\n" //
+				+ "        - Payment reference or OCR line\n" //
+				+ "        - Short description of goods/services\n" //
+				+ "    - List all bills not paid, with **the same details as above**, plus the reason for rejection.\n" //
+				+ "    - **Never omit any available detail. If a payment field is missing, state “Not provided”.**\n" //
+				+ "    - You MUST check, with maximum accuracy, whether a Probate Certificate (SKS) mention is present among all execution steps. "
+				+ "If the SKS is NOT mentioned as available or uploaded at any step or is mentioned as missing, "
+				+ "you MUST include in the email a request for the sender to provide the Probate Certificate (SKS) for the estate.\n" //
+				+ "    - If estate accounts were unblocked, mention that online banking access was granted.\n" //
 				+ "\n" //
-				+ "After sending the email, update the task diary logging email content; use category = \"Info email sent\".\n" //
+				+ "7. After sending the recap email, log the email content in the main task diary (category = \"Info email sent\").\n" //
+				+ "   **If and only if the email included a request for the Probate Certificate (SKS), "
+				+ "you MUST ALSO log this as a separate entry in main task diary (category = \"Sent email asking for SKS\"), clearly stating that such a request was sent. Never skip this separate entry.**\n" //
 				+ "\n" //
-				+ "After sending the email, if you requested to send the SKS THEN Update the task diary logging that email request has been sent. " //
-				+ "Use category = \"Sent email asking for SKS\".\n" //
+				+ "8. For every task you processed (including the main task and any additional tasks):\n" //
+				+ "    a. Explicitly close the task by calling the appropriate tool with all required identifiers (such as Client Number and Time Created).\n" //
+				+ "    b. After each close action, confirm that the tool reports success before proceeding.\n" //
+				+ "    c. If any close action fails, do NOT proceed to completion; handle or report the failure.\n" //
+				+ "    d. Only when all processed tasks are closed successfully, you may proceed to output the final step with status=\"COMPLETED\".\n" //
 				+ "\n" //
-				+ "	After all above steps are completed, close the task you just processed; the task must be closed and cannot be assumed it is closed already. "
-				+ " Check the response from corresponding tool to ensure the task was indeed closed.\n" //
-				+ "}\n" // For each task
-				+ "	\n" //
-				+ "</process>");
-	}
+				+ "Additional instructions: **never** contact the Operations Officer or a client if not **explicitly** instructed to do so in the above process."
+				+ "</process>\n");	}
 	
 	public static void main(String[] args) {
 		ExecutionContext ctx = new ExecutionContext(new DbConnector() {

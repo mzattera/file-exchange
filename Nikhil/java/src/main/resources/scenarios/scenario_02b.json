@@ -2,7 +2,7 @@
    {
       	"id":"scenario-02b",
       	"description":"SKS Received, no funereal bill.",
-		"success_criteria":"* Task with Time Created \"4/16/2025, 2:31 PM\" and Customer Number \"0605040203\" has been assigned to operator ID == 42.\n* Task with Time Created \"4/16/2025, 3:00 PM\" and Customer Number \"0605040203\" has been assigned to operator ID == 42.\n* SKS and Power of Attorney documents are uploaded through CAPT.\n* The diary has been updated with an entry with category=\"SKS registered\".\n* The diary has been updated with an entry with category=\"PoA uploaded in CF\".\n* Related person data for Lars Tai have been updated with Address=\"Jensensvej 123, 1234 København\", Relation to Estate=\"Power of Attorney\", Power of Attorney Type=\"Alone\", and Identification Completed=\"OK – Customer\"\n* Related person data for Bob Tai have been updated with Relation to Estate=\"Heir\".\n* Accounts in Customer Portal for Customer Number 0605040203 have been unblocked.\n* The diary has been updated with an entry with category=\"Created netbank to CPR\" mentioning Customer Number 0605040203.\n* Payment instructions have been issued to operations officer to pay a bill for 1.500,00 DKK to account number 0216-4069134262.\n* The diary has been updated with an entry with category=\"Paid bill\" mentioning a bill payment for 1.500 DKK.\n* No other payments except the above one have been issued or attempted.\n* An email has been sent to recipient/customer number 4040404040, confirming a bill for 1.500,00 DKK has been paid, and that access to online bank has been granted.\n* The diary has been updated with an entry with category=\"Info email sent\" being sent and signed with the Operator ID.\n* No other emails have been sent.\n* Both tasks assigned to Operator ID==42 have been closed in PEACE.",
+		"success_criteria":"* Task with Time Created \"4/16/2025, 2:31 PM\" and Customer Number \"0605040203\" has been assigned to operator ID == 42.\n* Task with Time Created \"4/16/2025, 3:00 PM\" and Customer Number \"0605040203\" has been assigned to operator ID == 42.\n* SKS and Power of Attorney documents have been uploaded.\n* The diary has been updated only once with an entry with category=\"SKS registered\".\n* The diary has been updated only once with an entry with category=\"PoA uploaded in CF\".\n* Related person data for Lars Tai have been updated once or multiple times, resulting in final state with Address=\"Jensensvej 123, 1234 Copenhagen\", Relation to Estate=\"Power of Attorney\", Power of Attorney Type=\"Alone\", and Identification Completed=\"OK – Customer\"\n* Related person data for Bob Tai have been updated once or multiple times, resulting in final state with Relation to Estate=\"Heir\".\n* Accounts in Customer Portal for Customer Number 0605040203 have been unblocked.\n* The diary has been updated only once with an entry with category=\"Created netbank to CPR\" mentioning Customer Number 0605040203.\n* Payment instructions have been issued to operations officer to pay a bill for 1.500,00 DKK to account number 0216-4069134262.\n* The diary has been updated only once with an entry with category=\"Paid bill\" mentioning a bill payment for 1.500 DKK.\n* No other payments except the above one have been issued or attempted.\n* An email has been sent to recipient/customer number 4040404040, confirming a bill for 1.500,00 DKK has been paid, and that access to online bank has been granted.\n* The diary has been updated only once with an entry with category=\"Info email sent\" being sent and signed with the Operator ID.\n* No other emails have been sent.\n* Both tasks assigned to Operator ID==42 have been closed.\n* Only the diary entries mentioned above have been created.\n",
 		"tool_calls": [
          {
             "tool_id":"getUnassignedTasks",
@@ -37,7 +37,7 @@
             "output":[
                {
                   "type":"text",
-                  "value":"# Retten i Holbæk\n\n---\n\nLars Tai  \nJensensvej 123  \n1234 København  \n\n<div align=\"right\">\n\nRETTEN I HOLBÆK  \nDANMARKS DOMSTOLE  \n\nSkifteretten  \nDomhustræde 1  \n4300 Holbæk  \nÅbent 8.30 - 15.00  \nBank 0216-4069134262  \nTlf.nr. 59 49 07 11  \nskifte.hbk@domstol.dk  \nwww.domstol.dk/holbaek  \nSE-nr. 29 20 69 10  \n\nSagsnr. SKS 446-777/2025  \n</div>\n\n---\n\n## Boet efter **Ella Tai**  \n<div align=\"right\">den 15. april 2025</div>\n\n---\n\nSkifteretten sender vedhæftet skifteretsattest, der skal bruges som dokumentation for rådighed over boet.\n\nHvis du ikke tidligere har betalt retsafgiften på 1.500 kr., skal denne betales senest 14 dage fra i dag. Beløbet overføres til rettens kontonummer med angivelse af SKS 446-777/2025.\n\n---\n\n## **Du får indenfor 24 timer adgang til boet på Skifteportalen.**  \nDu kan tilgå Skifteportalen på [www.minskiftesag.dk](http://www.minskiftesag.dk).\n\nPå Skifteportalen kan du få et overblik over de krav og tilgodehavender, der er registreret på boet. Der kan løbende blive registreret flere krav m.v., og du forventes derfor at holde dig orienteret frem til proklamafristens udløb. Efter proklamafristens udløb vil du modtage en meddelelse via digital post, når der er nyt på Skifteportalen.\n\nSom boets kontaktperson er det din opgave at sikre den nødvendige kontakt til de kreditorer, debitorer m.v., som laver en registrering på Skifteportalen.\n\nHvis du ikke har mulighed for at tilgå Skifteportalen, skal du skrive eller ringe til skifteretten for at få en oversigt over det, der er registreret på Skifteportalen. Det er dit eget ansvar at få denne oversigt tilsendt, både ved boets udlevering samt ved proklamafristens udløb.\n\nArvingerne kan bruge afdødes NemKonto som bo konto. Derved sikrer arvingerne sig, at udbetalinger fra det offentlige kommer direkte ind på kontoen. Kontakt afdødes bank for at få genåbnet afdødes NemKonto. Arvingerne kan også oprette en ny bankkonto, men denne kan ikke registreres som NemKonto.\n\nSkifteretten indrykker annonce i Statstidende (proklama). Statstidende sender regningen til dig.\n\nDet bemærkes, at åbningsstatus skal være modtaget i skifteretten senest 6 måneder fra dødsdagen og tidligst efter proklamafristens udløb i Statstidende.\n\nMed venlig hilsen\n\nRose Johnson  \nkontorfuldmægtig\n"
+                  "value":"# Retten i Holbæk\n\n---\n\nLars Tai  \nJensensvej 123  \n1234 Copenhagen  \n\n<div align=\"right\">\n\nRETTEN I HOLBÆK  \nDANMARKS DOMSTOLE  \n\nSkifteretten  \nDomhustræde 1  \n4300 Holbæk  \nÅbent 8.30 - 15.00  \nBank 0216-4069134262  \nTlf.nr. 59 49 07 11  \nskifte.hbk@domstol.dk  \nwww.domstol.dk/holbaek  \nSE-nr. 29 20 69 10  \n\nSagsnr. SKS 446-777/2025  \n</div>\n\n---\n\n## Boet efter **Ella Tai**  \n<div align=\"right\">den 15. april 2025</div>\n\n---\n\nSkifteretten sender vedhæftet skifteretsattest, der skal bruges som dokumentation for rådighed over boet.\n\nHvis du ikke tidligere har betalt retsafgiften på 1.500 kr., skal denne betales senest 14 dage fra i dag. Beløbet overføres til rettens kontonummer med angivelse af SKS 446-777/2025.\n\n---\n\n## **Du får indenfor 24 timer adgang til boet på Skifteportalen.**  \nDu kan tilgå Skifteportalen på [www.minskiftesag.dk](http://www.minskiftesag.dk).\n\nPå Skifteportalen kan du få et overblik over de krav og tilgodehavender, der er registreret på boet. Der kan løbende blive registreret flere krav m.v., og du forventes derfor at holde dig orienteret frem til proklamafristens udløb. Efter proklamafristens udløb vil du modtage en meddelelse via digital post, når der er nyt på Skifteportalen.\n\nSom boets kontaktperson er det din opgave at sikre den nødvendige kontakt til de kreditorer, debitorer m.v., som laver en registrering på Skifteportalen.\n\nHvis du ikke har mulighed for at tilgå Skifteportalen, skal du skrive eller ringe til skifteretten for at få en oversigt over det, der er registreret på Skifteportalen. Det er dit eget ansvar at få denne oversigt tilsendt, både ved boets udlevering samt ved proklamafristens udløb.\n\nArvingerne kan bruge afdødes NemKonto som bo konto. Derved sikrer arvingerne sig, at udbetalinger fra det offentlige kommer direkte ind på kontoen. Kontakt afdødes bank for at få genåbnet afdødes NemKonto. Arvingerne kan også oprette en ny bankkonto, men denne kan ikke registreres som NemKonto.\n\nSkifteretten indrykker annonce i Statstidende (proklama). Statstidende sender regningen til dig.\n\nDet bemærkes, at åbningsstatus skal være modtaget i skifteretten senest 6 måneder fra dødsdagen og tidligst efter proklamafristens udløb i Statstidende.\n\nMed venlig hilsen\n\nRose Johnson  \nkontorfuldmægtig\n"
                }
             ]
          },
@@ -62,7 +62,7 @@
             "output":[
                {
                   "type":"text",
-                  "value":"Sagsnr.  SKS 446-777/2025\n15. april 2025\n\nSkifteretsattest om privat skifte\nDet attesteres, at boet efter\n\nNavn                  Ella Tai\n\nAdresse               Bakkegade 45, 5678 Varhus\n\nCpr. nummer           0605040203            Død den           28. februar 2025\n\nden 15-04-2025 er overtaget til privat skifte af nedenævnte arvinger\n\nNavn og adresse\n\nLars Tai, Jensensvej 123, 1234 København\nBob Tai, Jensensvej 321, 12 København\n\nDet private skifte omfatter tillige boet efter tidligere afdøde ægtefælle\n\nNavn                    Bree Taigan\n\nFødt den   20. februar 1925      Død den   29. december 2011\n\nOak Flower\nkontorfuldmægtig\n\nSK25A"
+                  "value":"Sagsnr.  SKS 446-777/2025\n15. april 2025\n\nSkifteretsattest om privat skifte\nDet attesteres, at boet efter\n\nNavn                  Ella Tai\n\nAdresse               Bakkegade 45, 5678 Varhus\n\nCpr. nummer           0605040203            Død den           28. februar 2025\n\nden 15-04-2025 er overtaget til privat skifte af nedenævnte arvinger\n\nNavn og adresse\n\nLars Tai, Jensensvej 123, 1234 Copenhagen\nBob Tai, Jensensvej 321, 12 Copenhagen\n\nDet private skifte omfatter tillige boet efter tidligere afdøde ægtefælle\n\nNavn                    Bree Taigan\n\nFødt den   20. februar 1925      Død den   29. december 2011\n\nOak Flower\nkontorfuldmægtig\n\nSK25A"
                }
             ]
          },
@@ -74,7 +74,7 @@
             "output":[
                {
                   "type":"text",
-                  "value":"Skiftefuldmagt\nSagsnr.  SKS 446-777/2025\n\nUnderskrevne arving\nNavn    Bob Tai\nCPR-nummer 5555555555\nAdresse Jensensvej 321, 12 København\n\ngiver hermed fuldmagt til\nNavn    Lars Tai\nAdresse Jensensvej 123, 1234 København\nTlf.nr. 000088887\nE-mail  lion@midlle.dk\n\ntil i enhver henseende at repræsentere mig i boet efter\nNavn    Ella Tai\nAdresse Bakkegade 45, 5678 Varhus\nCPR-nr./fødselsdag 0605040203\nDød den 28. februar 2025\nog længstlevende/tidligere ægtefælle\nNavn    Bree Taigan\nCPR-nr./fødselsdag 998898876\nDød den 29. december 2011\n\nFuldmagten betyder, at alt, hvad hun/han beslutter eller erklærer for mig, skal have samme virkning, som var det besluttet eller erklæret af mig selv, medmindre (sæt x i rubrikken Nej for det eller de punkter, som fuldmagten eventuelt ikke skal gælde):\n1) Underskrive og godkende opgørelse over boets aktiver og passiver pr. dødsdagen\nJa\n2) træffe bestemmelse om salg, pantsætning eller udlodning til arvinger af boets ejendele\nJa\n3) tinglyse skøder og pantebreve m.v. vedrørende boets aktiver og passiver samt udstede tinglysningsfuldmagt til en anden fysisk eller juridisk person\nJa\n4) underskrive og godkende boopgørelsen\nJa\n5) videregive fuldmagten til en anden person\nJa\n\nSted og dato: 4/3-25 HCL\n\nArvingens underskrift (skal udfyldes skriftligt)\nBob Tai\n\nHvis fuldmagten skal bruges til tinglysning, skal to personer tillige skrive under til vitterlighed. Hvis fuldmagten oprettes i udlandet, skal to personer, der forstår dansk, eller en dansk repræsentation, tillige underskrive til vitterlighed.\n\nVi bekræfter, at underskriften er ægte, dateringen rigtig, og at underskriveren er myndig:\n\nNavn _________________________\nCPR-nummer ___________________\nStilling _______________________\nFuldstændig adresse:\nGadenavn _____________________\nPostnr. og by _________________\nDato _________________________\nUnderskrift (skal udfyldes skriftligt) _____________\n\nNavn _________________________\nCPR-nummer ___________________\nStilling _______________________\nFuldstændig adresse:\nGadenavn _____________________\nPostnr. og by _________________\nDato _________________________\n"
+                  "value":"Skiftefuldmagt\nSagsnr.  SKS 446-777/2025\n\nUnderskrevne arving\nNavn    Bob Tai\nCPR-nummer 5555555555\nAdresse Jensensvej 321, 12 Copenhagen\n\ngiver hermed fuldmagt til\nNavn    Lars Tai\nAdresse Jensensvej 123, 1234 Copenhagen\nTlf.nr. 000088887\nE-mail  lion@midlle.dk\n\ntil i enhver henseende at repræsentere mig i boet efter\nNavn    Ella Tai\nAdresse Bakkegade 45, 5678 Varhus\nCPR-nr./fødselsdag 0605040203\nDød den 28. februar 2025\nog længstlevende/tidligere ægtefælle\nNavn    Bree Taigan\nCPR-nr./fødselsdag 998898876\nDød den 29. december 2011\n\nFuldmagten betyder, at alt, hvad hun/han beslutter eller erklærer for mig, skal have samme virkning, som var det besluttet eller erklæret af mig selv, medmindre (sæt x i rubrikken Nej for det eller de punkter, som fuldmagten eventuelt ikke skal gælde):\n1) Underskrive og godkende opgørelse over boets aktiver og passiver pr. dødsdagen\nJa\n2) træffe bestemmelse om salg, pantsætning eller udlodning til arvinger af boets ejendele\nJa\n3) tinglyse skøder og pantebreve m.v. vedrørende boets aktiver og passiver samt udstede tinglysningsfuldmagt til en anden fysisk eller juridisk person\nJa\n4) underskrive og godkende boopgørelsen\nJa\n5) videregive fuldmagten til en anden person\nJa\n\nSted og dato: 4/3-25 HCL\n\nArvingens underskrift (skal udfyldes skriftligt)\nBob Tai\n\nHvis fuldmagten skal bruges til tinglysning, skal to personer tillige skrive under til vitterlighed. Hvis fuldmagten oprettes i udlandet, skal to personer, der forstår dansk, eller en dansk repræsentation, tillige underskrive til vitterlighed.\n\nVi bekræfter, at underskriften er ægte, dateringen rigtig, og at underskriveren er myndig:\n\nNavn _________________________\nCPR-nummer ___________________\nStilling _______________________\nFuldstændig adresse:\nGadenavn _____________________\nPostnr. og by _________________\nDato _________________________\nUnderskrift (skal udfyldes skriftligt) _____________\n\nNavn _________________________\nCPR-nummer ___________________\nStilling _______________________\nFuldstændig adresse:\nGadenavn _____________________\nPostnr. og by _________________\nDato _________________________\n"
                }
             ]
          },
@@ -86,7 +86,7 @@
             "output":[
                {
                   "type":"text",
-                  "value":"[{\"Customer Number\": \"4040404040\", \"Relation To Estate\": \"other\", \"Name\": \"Lars Tai\", \"Identification Completed\": \"None\", \"Power Of Attorney Type\": \"none\", \"Address\": \"JENSENSVEJ 6, 1234 KØBENHAVN, Denmark\", \"Email\": \"lion@midlle.dk\", \"Phone Number\": \"57689900\"}, {\"Customer Number\": \"5555555555\", \"Relation To Estate\": \"other\", \"Name\": \"Bob Tai\", \"Identification Completed\": \"None\", \"Power Of Attorney Type\": \"none\", \"Address\": \"JENSENSVEJ 321, 12 KØBENHAVN, Denmark\", \"Email\": \"\", \"Phone Number\": \"67676767\"}]"
+                  "value":"[{\"Customer Number\": \"4040404040\", \"Relation To Estate\": \"other\", \"Name\": \"Lars Tai\", \"Identification Completed\": \"None\", \"Power Of Attorney Type\": \"none\", \"Address\": \"Jensensvej 6, 1234 Copenhagen\", \"Email\": \"lion@midlle.dk\", \"Phone Number\": \"57689900\"}, {\"Customer Number\": \"5555555555\", \"Relation To Estate\": \"other\", \"Name\": \"Bob Tai\", \"Identification Completed\": \"None\", \"Power Of Attorney Type\": \"none\", \"Address\": \"Jensensvej 321, 12 Copenhagen\", \"Email\": \"\", \"Phone Number\": \"67676767\"}]"
                }
             ]
          },
@@ -198,19 +198,32 @@
                }
             ]
          },
-         {
-            "tool_id":"getDiaryEntries",
-            "input":{
-               "timeCreated":"4/16/2025, 2:31 PM",
-               "customerNumber":"0605040203"
-            },
-            "output":[
-               {
-                  "type":"text",
-                  "value":"No diary entries available (the diary is empty)."
-               }
-            ]
-         }
+		 {
+		    "tool_id":"getDiaryEntries",
+		    "input":{
+		       "timeCreated":"4/16/2025, 2:31 PM",
+		       "customerNumber":"0605040203"
+		    },
+		    "output":[
+		       {
+		          "type":"text",
+		          "value":"No diary entries available (the diary is empty)."
+		       }
+		    ]
+		 },
+		 {
+		    "tool_id":"getDiaryEntries",
+		    "input":{
+				"timeCreated":"4/16/2025, 3:00 PM",
+				"customerNumber":"0605040203"
+			},
+		    "output":[
+		       {
+		          "type":"text",
+		          "value":"No diary entries available (the diary is empty)."
+		       }
+		    ]
+		 }
       ]
    }
 ]

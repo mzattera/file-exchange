@@ -23,11 +23,11 @@ public class Capt extends Api {
 	public static class Parameters extends ReactAgent.Parameters {
 
 		public enum DocumentType {
-			SKS, POWER_OF_ATTORNEY, PROFORMA_DOCUMENT
+			SKS, POWER_OF_ATTORNEY, PROFORMA_DOCUMENT, ID
 		}
 
 		@JsonProperty(required = true)
-		@JsonPropertyDescription("Unique customer number of the estate the document refers to.")
+		@JsonPropertyDescription("Unique customer number of the estate the document refers to. If the document is an ID, this is the custome number fo rthe ID owner (not the estate).")
 		public String customerNumber;
 
 		@JsonProperty(required = true)
@@ -72,6 +72,9 @@ public class Capt extends Api {
 		case "PROFORMA_DOCUMENT":
 			getExecutionContext().getProformaDocument().put(customerNumber, fileContent);
 			break;
+		case "ID":
+			getExecutionContext().getProformaDocument().put(customerNumber, fileContent);
+			break;
 		default:
 			return new ToolCallResult(call, "ERROR: Invalid document type: " + documentType);
 		}
@@ -83,7 +86,7 @@ public class Capt extends Api {
 	public Capt() {
 
 		super("CAPT", //
-				"This tool allows uploading files like Proforma Document, Power of Attorney document (PoA), and Probate Certificate (SKS), that are then made available to other applications. "
+				"This tool allows uploading files like Proforma Document, Power of Attorney document (PoA), and Probate Certificate (SKS), and persons' IDs, that are then made available to other applications. "
 						+ "**STRICTLY** do not use this tool to check the type of a document.",
 				Parameters.class);
 	}

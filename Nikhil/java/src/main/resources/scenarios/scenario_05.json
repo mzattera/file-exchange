@@ -1,0 +1,165 @@
+[
+    {
+        "id": "scenario-05",
+        "description": "No SKS; funeral bills, some bills paid before.",
+        "success_criteria": "* The task with Time Created=\"4/16/2025, 2:31 PM\" and Customer Number=\"1234567891\" has been assigned to Operator 42; no other tasks have been assigned to any operator.\n* Related person data for Jane Doe (customer number 2626262626) have been updated once or multiple times, resulting in final state with Phone Number=\"61616161\"\n* Payment instructions have been issued to operations officer to pay the bill for 24.998,55 DKK through payment line '+71<045182000115371+80643128<' from account number 1111111111.\n* The diary has been updated with an entry with category=\"Paid bill\" mentioning the bills payment of 24.998,55 DKK to \"Folmer Olsen Begravelsesforretning ApS\" with invoice number 11537 from account number 1111111111.\n* Payment instructions have been issued to operations officer to pay the bill for 8.790,00 DKK through payment line '+71<0000000000923201+85046713<' from account number 1111111111.\n* The diary has been updated with an entry with category=\"Paid bill\" mentioning the bills payment of 8.790,00 DKK from Stenhuggeren Aalborg ApS with invoice number 9232, from account number 1111111111.\n* No other payments have been issued or attempted.\n* An email has been sent to recipient/customer number 2626262626, confirming the bills for 24.998,55 DKK and 8.790,00 DKK has been paid, and that SKS document is missing and must be provided.\n* No other emails have been sent.\n* An entry has been created in the diary with category=\"Info email sent\" mentioning the email being sent and signed with the Operator ID.\n* An entry has been created in the diary with category=\"Sent email asking for SKS\" mentioning the email being sent and signed with the Operator ID.\n* The task with Time Created=\"4/16/2025, 2:31 PM\" and Customer Number=\"1234567891\" has been closed.\n* No documents have been uploaded.\n* Only the diary entries mentioned above have been created.\n",
+        "tool_calls": [
+            {
+                "tool_id": "getUnassignedTasks",
+                "input": {},
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "[{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 3:27 PM\",\"Time Created\":\"4/16/2025, 2:31 PM\",\"Customer Number\":\"1234567891\",\"Customer Name\":\"Doe John\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 3:26 PM\",\"Time Created\":\"4/16/2025, 3:26 PM\",\"Customer Number\":\"111444445\",\"Customer Name\":\"Doe Tonny Lewis\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 3:23 PM\",\"Time Created\":\"4/16/2025, 3:23 PM\",\"Customer Number\":\"1187911145\",\"Customer Name\":\"Doe Liam Ray\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 3:06 PM\",\"Time Created\":\"4/16/2025, 3:06 PM\",\"Customer Number\":\"0557911145\",\"Customer Name\":\"Doe Ava Kim\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 3:04 PM\",\"Time Created\":\"4/16/2025, 3:04 PM\",\"Customer Number\":\"0557922225\",\"Customer Name\":\"Doe Noah Wu\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 3:01 PM\",\"Time Created\":\"4/16/2025, 3:01 PM\",\"Customer Number\":\"0433565669\",\"Customer Name\":\"Doe Mia Roe\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 3:00 PM\",\"Time Created\":\"4/16/2025, 3:00 PM\",\"Customer Number\":\"42342342342\",\"Customer Name\":\"Mario  Rossi\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 2:36 PM\",\"Time Created\":\"4/16/2025, 2:36 PM\",\"Customer Number\":\"2222222222\",\"Customer Name\":\"Doe Ethan Poe\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 2:36 PM\",\"Time Created\":\"4/16/2025, 2:36 PM\",\"Customer Number\":\"2222222589\",\"Customer Name\":\"Doe Jack Lin\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 2:34 PM\",\"Time Created\":\"4/16/2025, 2:34 PM\",\"Customer Number\":\"3332222222\",\"Customer Name\":\"Doe Lily Sue\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 2:33 PM\",\"Time Created\":\"4/16/2025, 2:33 PM\",\"Customer Number\":\"2536458577\",\"Customer Name\":\"Doe Zoe Kai\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 2:33 PM\",\"Time Created\":\"4/16/2025, 2:33 PM\",\"Customer Number\":\"6666666666\",\"Customer Name\":\"Doe Ryan Lee\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 2:31 PM\",\"Time Created\":\"4/16/2025, 2:32 PM\",\"Customer Number\":\"5696365566\",\"Customer Name\":\"OWEN MAX\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 2:31 PM\",\"Time Created\":\"4/16/2025, 2:32 PM\",\"Customer Number\":\"7777777777\",\"Customer Name\":\"CHLOE NG\"},{\"Step Name\":\"Handle Account 1\",\"Due Date\":\"4/23/2025, 2:31 PM\",\"Time Created\":\"4/16/2025, 2:32 PM\",\"Customer Number\":\"8855225588\",\"Customer Name\":\"DYLAN FAY\"}]"
+                    }
+                ]
+            },
+            {
+                "tool_id": "getTaskContent",
+                "input": {
+                    "timeCreated": "4/16/2025, 2:31 PM",
+                    "customerNumber": "1234567891"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "****************** INFORMATIONER OM AFDØDE ******************:\nAFDØDES FORNAVN OG EVT. MELLEMNAVN:     John\nAFDØDES EFTERNAVN:                      Doe\nAFDØDES CPR-NR:                         1234567891\n****************** DINE OPLYSNINGER ******************:\nVælg her, om du henvender dig som arving/andre eller advokat/bobestyrer: Rådgiver i Danske Bank\nRådgiver B-nr.:      HP1111\nARVINGENS CPR-NR.:   2626262626\nARVINGENS FORNAVN OG EVT. MELLEMNAVN:   Jane\nARVINGENS EFTERNAVN: Doe\nARVINGENS TELEFON NR.: 61616161\nARVINGENS E-MAIL:    ingenmail@danskebank.dk\n****************** SKIFTERETSATTEST ******************:\nEr Skifteretsattest udstedt af Skifteretten?: Nej\n****************** KONTO OG BETALINGER ******************:\n************** Betal regning **************:\nBetal regning: Ja\nHvis du ønsker at betale en regning fra en bestemt konto, indtast da kontonummer, eller lad feltet stå tomt::\n11111111111\n****************** INVESTERINGER ******************:\n****************** PENSION ******************:\nFORESPØRGLSER OM PENSION:\n\nAttachments: \"image.jpg\", \"IMG5414.png\", \"SCN3938.png\"."
+                    }
+                ]
+            },
+            {
+                "tool_id": "getFileContent",
+                "input": {
+                    "fileName": "image.jpg"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "Folmer Olsen  \nBEGRAVELSESFORRETNING ApS\n\nJane Doe  \nHubbytown 10  \n0000 Hogwarts\n\nDato: 07/04/2025  \nFakturanr. 11537\n\nAfdødes navn: [ John Doe ]\n\nFaktura\n\n| Beskrivelse                                       | Momsbeløb   | Linietotal   |\n|---------------------------------------------------|-------------|--------------|\n| _Vore ydelser og produkter_                       |             |              |\n| Kiste                                             | 1.095,00    | 5.475,00     |\n| Polstring af kiste                                | 96,00       | 480,00       |\n| Miljøurne                                         | 258,00      | 1.290,00     |\n| Klargøring og udbringning af kiste                | 0,00        | 645,00       |\n| Kistelægning                                      | 0,00        | 945,00       |\n| Medhjælp ved kistelægning                         | 0,00        | 655,00       |\n| Rustvognskørsel - kapel                           | 0,00        | 1.185,00     |\n| Rustvognskørsel - kirken                          | 0,00        | 650,00       |\n| Rustvognskørsel - krematorium                     | 0,00        | 650,00       |\n| Bærere, kiste indsat i kapel/kirke                | 0,00        | 650,00       |\n| Blomsterkørsel til kirkegården                    | 195,00      | 975,00       |\n| Honorar, ordning og assistance                    | 0,00        | 4.375,00     |\n| Hygiejne- og miljøtillæg                          | 0,00        | 295,00       |\n| _Udlæg_                                           |             |              |\n| Annonce (Nordjyske 25/03/2025)                    | 521,71      | 2.608,55     |\n| Kistepyntning                                     | 480,00      | 2.400,00     |\n| Krans med bånd                                    | 280,00      | 1.400,00     |\n| Kasteroser (10 stk.)                              | 60,00       | 300,00       |\n| _Tilskud_                                         |             |              |\n| Begravelseshjælp (Udbetaling Danmark)             | 0,00        | -1.050,00    |\n\nSubtotal momspligtigt:    11.942,84  \nSubtotal momsfrit:        10.070,00  \nMoms (25%):               2.985,71  \n**Total DKK:**            **24.998,55**\n\nForfaldsdato: 28/04/2025\n\nFI linie: +71<045182000115371+80643128<\n\nDanske Bedemænd  \nVesterbro 61 A · 9000 Aalborg · Tlf. 98 12 15 57  \ninfo@begravelsesforretning.dk · www.begravelsesforretning.dk · CVR-nr.: 17002694 · Etabl. 1914"
+                    }
+                ]
+            },
+            {
+                "tool_id": "getFileContent",
+                "input": {
+                    "fileName": "IMG5414.png"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "Stenhuggeren Aalborg ApS  \nAnker Engelunds Vej 13, 9200 Aalborg SV  \nTlf: 98 18 06 01\n\nJane Doe  \nHubbytown 10  \n0000 Hogwarts\n\nFaktura           9232\n\nDato: ............ 16-04-25  \nKundenummer: ..... 27581  \nSE/CVR-nr.: ...... 27 50 54 22  \nBank: ............ Sparekassen Sjælland  \nKonto.: .......... 5292-0000262848  \n\nBetalingsbetingelse:  14 dage netto  \nForfaldsdato:         30-04-25  \nVort ordre nr.:       \nSide:                 1  \n\nBoet efter:   John Doe\n\n| Beskrivelse                                        | Antal | Enhed | Salgspris | Beløb/DKK   |\n|----------------------------------------------------|-------|-------|-----------|-------------|\n| Brændt natursten inkl. levering og opstilling      |   1   |       | 5.500,00  | 5.500,00    |\n| Bogstaver og tal                                   |  29   |       |    90,00  | 2.610,00    |\n| Dekoration                                         |   1   |       |   600,00  |   600,00    |\n| Punktummer                                         |   4   |       |    20,00  |    80,00    |\n\nBeløb excl. Moms:      7.032,00  \nMomsbeløb:             1.758,00  \nTotal beløb:           8.790,00\n\n0000000000000000  \nJane Doe  \nHubbytown 10  \n0000 Hogwarts\n\n85046713  \nStenhuggeren Aalborg ApS  \nAnker Engelunds Vej 13  \n9200 Aalborg SV\n\n+71<0000000000923201+85046713<"
+                    }
+                ]
+            },
+            {
+                "tool_id": "getFileContent",
+                "input": {
+                    "fileName": "SCN3938.png"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "KØREKORT                        DANMARK\n\n1. Doe  \n2. Jane  \n3. 11.07.1950 Denmark  \n4a. 01.07.1918  \n4b. 00.03.1938  \n5. 12345678  \nId. 2626262626  \n\nJane Doe\n\nAM/B/BL/K/TM"
+                    }
+                ]
+            },
+            {
+                "tool_id": "getDiaryEntries",
+                "input": {
+                    "timeCreated": "4/16/2025, 2:31 PM",
+                    "customerNumber": "1234567891"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "NOTE: Proforma balance 701.727,69 kr. (with joint acc.)\n\nACCOUNT\n08-04-2025/HP0000/HARRY: 2x Handle Account 1:\nPaid bill from account     1111111111\n- Aalborg Kommune   -11.865,00 kr\nLetter sent asking for SKS\n\n03-04-2025/HP0000/HARRY: Handle Account 1:\nID of Jane Doe NOT upload to CF since she's a DB customer\nPaid bill from account     1111111111\n- AKKC RESTAURANT APS   11.220,00 kr.\nLetter sent asking for SKS"
+                    }
+                ]
+            },
+            {
+                "tool_id": "getRelatedPersons",
+                "input": {
+                    "customerNumber": "1234567891"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "[{\"Customer Number\": \"2626262626\", \"Relation To Estate\": \"Other\", \"Name\": \"Jane Doe\", \"Identification Completed\": \"None\", \"Power Of Attorney Type\": \"None\", \"Address\": \"JENSENSVEJ 123\", \"Email\": \"lion@midlle.dk\", \"Phone Number\": \"57869900\"}]"
+                    }
+                ]
+            },
+            {
+                "tool_id": "getAccounts",
+                "input": {
+                    "customerNumber": "1234567891"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "Kontooversigt\n\n| Kundens kontonr     | Valuta | Produkt         | Kort | FE | Saldo        |\n|---------------------|--------|-----------------|------|----|-------------|\n| 1111111111     | DKK    | Danske Konto    |      | J  | 62.774,44    |\n| 2222222222     | DKK    | Danske Indlån   |      | N  | 588.206,09   |"
+                    }
+                ]
+            },
+            {
+                "tool_id": "getTransactions",
+                "input": {
+                    "accountNumber": "1111111111"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "KOPOSTL                                         List Posteringer             23.04.2025 05:47:56\nVælg en postering med aktionskode v vis\n\nKontonummer : 1111111111          Landekd: DK   Valutakode: DKK\nInternt navn : B/E og Jane             Prod: 13X     Danske Konto\nMærke       :                          Disp.belob : 96.662,99\nSeneste udskriftsnummer: 185           Maximum    : 0,00\n\n---------------------------------------------------------------------------------\nA   Dato     Valør     Tekst                                 Hævet/Indsat   Saldo\n---------------------------------------------------------------------------------\n■   23.03    23.03     Automatudb. Hasseris råd               2.000,00-     111.521,60\n-   23.03    23.03     Automatudb. Hasseris råd               2.000,00-     109.521,60\n-   24.03    24.03     Dankortnota 26964                        127,00-     109.394,60\n-   24.03    24.03     Dankortnota 63886                        124,70-     109.269,90\n-   31.03    31.03     Løn, pension m.v.                      8.751,00      118.020,90\n-   31.03    31.03     Pension fra ATP                          304,00      118.324,90\n-   31.03    01.04     Gebyrer i alt                             25,00-     118.299,90\n-   31.03    01.04     Gebyr - JANE DOE                          27,00-     118.272,90\n-   31.03    01.04     Gebyr - BOET EFTER JOHN                    18,00-    118.254,90\n-   03.04    03.04     AKKC RESTAURANT APS                    11.220,00-    107.034,90\n-   03.04    03.04     Gebyrer i alt                              50,00-    106.984,90\n-   08.04    08.04     AALBORG KOMMUNE                        11.865,00-     95.119,90\n-   08.04    08.04     Indbetalingskort                           50,00-     95.069,90\n-   09.04    09.04     Region Nordjylland                        571,60       95.641,50\n-   22.04    22.04     Topdanmark A/S                          1.021,49       96.662,99"
+                    }
+                ]
+            },
+            {
+                "tool_id": "getTransactions",
+                "input": {
+                    "accountNumber": "2222222222"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "KOPOST                                          Posteringsoplysninger           23.04.2025 05:57:51\n\nVælg en aktion og indtast tilhørende data.\nl list      p print\n\nAktion . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . L  \nKontonummer . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2222222222  \nLandekode . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . DK  \nFra dato . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 210325  \nTil dato . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 230425  \nFra klokken . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  \nTil klokken . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  \nFra beløb . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  \nTil beløb . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  \nUdskriftsnummer . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  \nValutakode . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .  \nGebyr . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . N   N = nej, J = ja\n\nSorteringsorden       1  \nPrintoplysninger      1  \nIngen transaktioner opfylder de indtastede søgekriterier."
+                    }
+                ]
+            },
+            {
+                "tool_id": "getSKS",
+                "input": {
+                    "customerNumber": "1234567891"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "No SKS was provided for customer number 1234567891."
+                    }
+                ]
+            },
+            {
+                "tool_id": "getPoA",
+                "input": {
+                    "customerNumber": "1234567891"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "No Power of Attorney document was provided for customer number 1234567891."
+                    }
+                ]
+            },
+            {
+                "tool_id": "getProformaDocument",
+                "input": {
+                    "customerNumber": "1234567891"
+                },
+                "output": [
+                    {
+                        "type": "text",
+                        "value": "No Proforma Document was provided for customer number 1234567891."
+                    }
+                ]
+            }
+        ]
+    }
+]
